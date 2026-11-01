@@ -27,6 +27,8 @@
     --ok: #6fc59b; --warn: #e3b25a; color-scheme: dark;
   }
   .summary, .btn { color: #0f1a1c !important; }
+  .btn.sec { color: var(--slate) !important; }
+  .btn.danger { color: var(--accent) !important; }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -120,10 +122,16 @@ table.hist { width: 100%; border-collapse: collapse; font-size: .95rem; }
 table.hist th { text-align: left; font-size: .8rem; color: var(--muted); font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--line); }
 table.hist td { padding: 9px 4px; border-bottom: 1px solid var(--line); }
 table.hist .r { text-align: right; }
+table.hist td.r { white-space: nowrap; }
 .pill { display: inline-block; font-size: .75rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .pill.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 .pill.low { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
 .note { font-size: .8rem; color: var(--muted); margin: 0; }
+.pill.bad { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.kpi { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.kpi .big { font-size: 2.4rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart text { font-family: inherit; }
 @media (prefers-reduced-motion: no-preference) { .bar > i { transition: width .3s ease; } }
 </style>
 </head>
@@ -169,9 +177,19 @@ table.hist .r { text-align: right; }
           <label class="f" for="wDate">Fecha<input type="date" id="wDate"></label>
           <label class="f" for="wKg">Peso (kg)<input type="number" id="wKg" step="0.1" inputmode="decimal" placeholder="107,0"></label>
         </div>
-        <label class="f" for="wCm">Cintura (cm, opcional)<input type="number" id="wCm" step="0.5" inputmode="decimal" placeholder="118,5"></label>
+        <div class="grid2">
+          <label class="f" for="wCm">Cintura (cm, opcional)<input type="number" id="wCm" step="0.5" inputmode="decimal" placeholder="118,5"></label>
+          <label class="f" for="wHt">Altura (cm)<input type="number" id="wHt" step="0.5" inputmode="decimal" placeholder="178"></label>
+        </div>
         <button class="btn" id="saveWeight">Guardar</button>
-        <p class="note">Pésate en ayunas, después de ir al baño. La cintura, una vez a la semana (los viernes).</p>
+        <p class="note">Pésate en ayunas, después de ir al baño. La cintura, una vez a la semana (los viernes). La altura solo hace falta ponerla una vez: se queda guardada.</p>
+      </div>
+      <div class="card stack" id="icaCard">
+        <h2>Cintura / altura</h2>
+        <div class="kpi"><span class="big" id="icaVal">—</span><span id="icaPill"></span></div>
+        <p class="note" id="icaTxt"></p>
+        <div class="chart" id="icaChart"></div>
+        <p class="note">Cintura en cm dividida entre altura en cm. Menos de 0,50: vas por buen camino. 0,50 o más: estás acumulando grasa abdominal. Dicho de otro modo: la cintura tiene que medir menos de la mitad de tu altura.</p>
       </div>
       <div class="card">
         <h2>Historial de peso</h2>
@@ -204,6 +222,7 @@ table.hist .r { text-align: right; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
+      <p class="note" style="text-align:center">Versión 2</p>
     </div>
   </section>
 </div>
@@ -316,6 +335,17 @@ table.hist .r { text-align: right; }
   const norm = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const num = (v) => { const x = parseFloat(String(v).replace(',', '.')); return Number.isFinite(x) ? x : NaN; };
   const setStatus = (t, bad) => { const s = $('#status'); s.textContent = t || ''; s.classList.toggle('bad', !!bad); };
+  const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
+  const fmt2 = (x) => r2(x).toFixed(2).replace('.', ',');
+  // Índice cintura/altura: cintura (cm) ÷ altura (cm). La altura es una sola, la del perfil.
+  const altura = (d) => { const a = Number(d && d.perfil && d.perfil.altura_cm); return a > 0 ? a : null; };
+  const icaOf = (w, d) => { const a = altura(d), c = Number(w && w.cintura_cm); return a && c > 0 ? c / a : null; };
+  function syncIca(d) {
+    if (!d || !d.pesos) return;
+    for (const w of Object.values(d.pesos)) { const v = icaOf(w, d); if (v) w.cintura_altura = r2(v); else delete w.cintura_altura; }
+  }
+  const ICA_OBJ = 0.5;
+  const icaZone = (v) => (v < ICA_OBJ ? { cls: 'ok', t: 'Vas por buen camino' } : { cls: 'bad', t: 'Acumulando grasa abdominal' });
   const isFoto = (s) => typeof s === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s);
 
   // ---------- almacenamiento en el móvil ----------
@@ -328,11 +358,13 @@ table.hist .r { text-align: right; }
     try { d = JSON.parse(lsGet(KEY) || 'null'); } catch { d = null; }
     if (!d || typeof d !== 'object' || !Array.isArray(d.foods)) { d = JSON.parse(JSON.stringify(SEED)); persist(d, true); }
     d.regs = d.regs || {}; d.pesos = d.pesos || {}; d.goals = { ...DEF_GOALS, ...(d.goals || {}) };
+    d.perfil = { altura_cm: null, ...(d.perfil || {}) };
     return d;
   }
   function fotoKeys() { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(FOTO)) out.push(k); } } catch { /* nada */ } return out.sort(); }
   function pruneOldestFoto() { const ks = fotoKeys(); if (!ks.length) return false; lsDel(ks[0]); return true; }
   function persist(d, quiet) {
+    syncIca(d || data);
     const s = JSON.stringify(d || data);
     for (let tries = 0; tries < 50; tries++) {
       try { lsSet(KEY, s); return true; }
@@ -449,10 +481,67 @@ table.hist .r { text-align: right; }
       const prev = rows[i + 1]; const diff = prev ? r1(w.peso_kg - prev.peso_kg) : null;
       tb.append(el('tr', null, el('td', { text: nice(w.fecha) }),
         el('td', { class: 'r num' }, `${fmt1(w.peso_kg)} kg`, diff ? el('div', { class: 'note', text: `${diff > 0 ? '+' : ''}${fmt1(diff)}` }) : null),
-        el('td', { class: 'r num', text: w.cintura_cm ? `${fmt1(w.cintura_cm)} cm` : '—' }),
+        el('td', { class: 'r num' }, w.cintura_cm ? `${fmt1(w.cintura_cm)} cm` : '—', icaOf(w, data) ? el('div', { class: 'note', text: `C/A ${fmt2(icaOf(w, data))}` }) : null),
         el('td', { class: 'r' }, el('button', { class: 'del', 'aria-label': 'Borrar este peso', onclick: () => { delete data.pesos[w.fecha]; persist(); renderAll(); } }, '✕'))));
     });
     $('#gKcal').value = data.goals.kcal; $('#gProt').value = data.goals.proteina;
+    if (document.activeElement !== $('#wHt')) $('#wHt').value = altura(data) || '';
+    renderIca();
+  }
+
+  // ---------- KPI cintura / altura ----------
+  function renderIca() {
+    const a = altura(data);
+    const pts = Object.values(data.pesos).filter((w) => icaOf(w, data)).sort((x, y) => (x.fecha < y.fecha ? -1 : 1))
+      .map((w) => ({ fecha: w.fecha, v: icaOf(w, data), c: Number(w.cintura_cm) }));
+    const pill = $('#icaPill'); pill.replaceChildren();
+    if (!a || !pts.length) {
+      $('#icaVal').textContent = '—';
+      $('#icaTxt').textContent = !a ? 'Pon tu altura en cm arriba para calcular el índice.' : 'Anota la cintura junto al peso para calcular el índice.';
+      $('#icaChart').replaceChildren(); return;
+    }
+    const last = pts[pts.length - 1], z = icaZone(last.v);
+    $('#icaVal').textContent = fmt2(last.v);
+    pill.append(el('span', { class: `pill ${z.cls}`, text: z.t }));
+    const meta = a * ICA_OBJ, falta = last.c - meta;
+    let t = `${fmt1(last.c)} cm de cintura ÷ ${fmt1(a)} cm de altura (${nice(last.fecha).toLowerCase()}). `;
+    t += falta > 0 ? `Para bajar de 0,50 la cintura tiene que medir menos de ${fmt1(meta)} cm: te faltan ${fmt1(falta)} cm.`
+                   : `Estás ${fmt1(-falta)} cm por debajo de la mitad de tu altura (${fmt1(meta)} cm).`;
+    if (pts.length > 1) { const d = r2(last.v - pts[0].v); const [, m0, d0] = pts[0].fecha.split('-').map(Number); t += ` Desde el ${d0} ${MESES[m0 - 1]}: ${d > 0 ? '+' : ''}${fmt2(d)}.`; }
+    $('#icaTxt').textContent = t;
+    $('#icaChart').innerHTML = icaSvg(pts);
+  }
+  function icaSvg(pts) {
+    const W = 320, H = 190, L = 38, R = 14, T = 12, B = 26;
+    const vals = pts.map((p) => p.v);
+    let lo = Math.min(0.45, ...vals) - 0.02, hi = Math.max(0.55, ...vals) + 0.02;
+    lo = Math.floor(lo * 20) / 20; hi = Math.ceil(hi * 20) / 20;
+    const day = (s) => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) / 864e5; };
+    const d0 = day(pts[0].fecha), d1 = day(pts[pts.length - 1].fecha), span = Math.max(1, d1 - d0);
+    const X = (p) => (pts.length === 1 ? (L + W - R) / 2 : L + (day(p.fecha) - d0) / span * (W - L - R));
+    const Y = (v) => T + (hi - v) / (hi - lo) * (H - T - B);
+    const yObj = Y(ICA_OBJ);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución del índice cintura/altura">`;
+    s += `<rect x="${L}" y="${T}" width="${W - L - R}" height="${(yObj - T).toFixed(1)}" style="fill:var(--accent)" fill-opacity=".10"/>`;
+    s += `<rect x="${L}" y="${yObj.toFixed(1)}" width="${W - L - R}" height="${(H - B - yObj).toFixed(1)}" style="fill:var(--ok)" fill-opacity=".10"/>`;
+    for (let v = lo; v <= hi + 1e-9; v += 0.05) {
+      const y = Y(v).toFixed(1);
+      s += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" style="stroke:var(--line)" stroke-width="1"/>`;
+      s += `<text x="${L - 6}" y="${(+y + 4).toFixed(1)}" text-anchor="end" font-size="10" style="fill:var(--muted)">${fmt2(v)}</text>`;
+    }
+    s += `<line x1="${L}" x2="${W - R}" y1="${yObj.toFixed(1)}" y2="${yObj.toFixed(1)}" style="stroke:var(--ok)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+    s += `<text x="${W - R}" y="${(yObj - 5).toFixed(1)}" text-anchor="end" font-size="10" font-weight="700" style="fill:var(--ok)">objetivo 0,50</text>`;
+    if (pts.length > 1) s += `<polyline points="${pts.map((p) => `${X(p).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ')}" fill="none" style="stroke:var(--slate)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    pts.forEach((p, i) => {
+      const lastP = i === pts.length - 1;
+      s += `<circle cx="${X(p).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="${lastP ? 5 : 3.5}" style="fill:var(--slate);stroke:var(--panel)" stroke-width="2"/>`;
+    });
+    const lp = pts[pts.length - 1], lx = X(lp), anchor = lx > W - 60 ? 'end' : lx < L + 30 ? 'start' : 'middle';
+    s += `<text x="${lx.toFixed(1)}" y="${(Y(lp.v) - 10).toFixed(1)}" text-anchor="${anchor}" font-size="12" font-weight="800" style="fill:var(--ink)">${fmt2(lp.v)}</text>`;
+    const lab = (f) => { const [, m, d] = f.split('-').map(Number); return `${d} ${MESES[m - 1]}`; };
+    s += `<text x="${pts.length === 1 ? lx.toFixed(1) : L}" y="${H - 8}" text-anchor="${pts.length === 1 ? 'middle' : 'start'}" font-size="10" style="fill:var(--muted)">${lab(pts[0].fecha)}</text>`;
+    if (pts.length > 1) s += `<text x="${W - R}" y="${H - 8}" text-anchor="end" font-size="10" style="fill:var(--muted)">${lab(lp.fecha)}</text>`;
+    return s + '</svg>';
   }
 
   // ---------- pantalla: historial ----------
@@ -607,11 +696,31 @@ table.hist .r { text-align: right; }
 
   // ---------- peso y objetivos ----------
   $('#wDate').value = today();
+  // Altura: se guarda sola al cambiarla (no hace falta anotar peso).
+  function readHeight() {
+    const raw = $('#wHt').value.trim(); if (!raw) return { ok: true, v: altura(data) };
+    const h = num(raw); return h >= 100 && h <= 250 ? { ok: true, v: r1(h) } : { ok: false };
+  }
+  $('#wHt').addEventListener('change', () => {
+    const h = readHeight();
+    if (!h.ok) { setStatus('Escribe tu altura en cm (por ejemplo, 178).', true); return; }
+    if (h.v && h.v !== altura(data)) { data.perfil.altura_cm = h.v; if (persist()) { setStatus(`Altura guardada: ${fmt1(h.v)} cm`); renderAll(); } }
+  });
   $('#saveWeight').addEventListener('click', () => {
-    const f = $('#wDate').value, kg = num($('#wKg').value), cm = num($('#wCm').value);
+    const f = $('#wDate').value, kg = num($('#wKg').value), cm = num($('#wCm').value), h = readHeight();
     if (!f || !(kg > 20 && kg < 400)) { setStatus('Escribe un peso válido en kg.', true); return; }
+    if (!h.ok) { setStatus('Escribe tu altura en cm (por ejemplo, 178).', true); return; }
+    if (h.v) data.perfil.altura_cm = h.v;
     data.pesos[f] = { fecha: f, peso_kg: r1(kg), cintura_cm: cm > 0 ? r1(cm) : null };
-    if (persist()) { $('#wKg').value = ''; $('#wCm').value = ''; setStatus(`Peso guardado: ${fmt1(kg)} kg`); renderAll(); }
+    if (persist()) {
+      $('#wKg').value = ''; $('#wCm').value = '';
+      const w = data.pesos[f], v = icaOf(w, data);
+      let msg = `Peso guardado: ${fmt1(kg)} kg`;
+      if (v) msg += ` · cintura/altura ${fmt2(v)} (${icaZone(v).t.toLowerCase()})`;
+      else if (cm > 0) msg += ' · pon tu altura para calcular cintura/altura';
+      setStatus(msg); renderAll();
+      if (v) $('#icaCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   });
   $('#saveGoals').addEventListener('click', () => {
     const k = num($('#gKcal').value), p = num($('#gProt').value);
@@ -631,7 +740,7 @@ table.hist .r { text-align: right; }
   }
   $('#exportJson').addEventListener('click', () => {
     const fotos = {}; for (const k of fotoKeys()) { const v = lsGet(k); if (isFoto(v)) fotos[k.slice(FOTO.length)] = v; }
-    const out = { app: 'diario-comidas', version: 1, exportado: new Date().toISOString(), data, fotos };
+    const out = { app: 'diario-comidas', version: 2, exportado: new Date().toISOString(), data, fotos };
     share(new Blob([JSON.stringify(out)], { type: 'application/json' }), `diario-comidas-${today()}.json`, 'Copia');
   });
   $('#exportCsv').addEventListener('click', () => {
@@ -643,8 +752,10 @@ table.hist .r { text-align: right; }
       if (r.extra) lines.push([r.fecha, q(r.comida), q(`Estimado por Claude: ${r.extra.texto || ''}`), '', dec(r.extra.kcal), dec(r.extra.prot)].join(';'));
       for (const it of (r.items || [])) lines.push([r.fecha, q(r.comida), q(it.alimento), q(it.cantidadTexto || ''), dec(it.kcal), dec(it.prot)].join(';'));
     }
-    lines.push('', 'Fecha;Peso (kg);Cintura (cm)');
-    for (const w of Object.values(data.pesos).sort((a, b) => (a.fecha < b.fecha ? -1 : 1))) lines.push([w.fecha, dec(w.peso_kg), w.cintura_cm ? dec(w.cintura_cm) : ''].join(';'));
+    lines.push('', 'Fecha;Peso (kg);Cintura (cm);Altura (cm);Cintura/altura');
+    const dec2 = (x) => r2(x).toFixed(2).replace('.', ',');
+    for (const w of Object.values(data.pesos).sort((a, b) => (a.fecha < b.fecha ? -1 : 1))) { const v = icaOf(w, data);
+      lines.push([w.fecha, dec(w.peso_kg), w.cintura_cm ? dec(w.cintura_cm) : '', altura(data) ? dec(altura(data)) : '', v ? dec2(v) : ''].join(';')); }
     share(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' }), `comidas-${today()}.csv`, 'Hoja para Excel');
   });
   $('#importJson').addEventListener('click', () => { $('#importFile').value = ''; $('#importFile').click(); });
@@ -662,7 +773,7 @@ table.hist .r { text-align: right; }
     e.stopImmediatePropagation();
     const obj = b._obj; b._obj = null; b.dataset.pending = ''; b.textContent = 'Restaurar una copia';
     for (const k of fotoKeys()) lsDel(k);
-    data = { foods: obj.data.foods, regs: obj.data.regs || {}, pesos: obj.data.pesos || {}, goals: { ...DEF_GOALS, ...(obj.data.goals || {}) } };
+    data = { foods: obj.data.foods, regs: obj.data.regs || {}, pesos: obj.data.pesos || {}, goals: { ...DEF_GOALS, ...(obj.data.goals || {}) }, perfil: { altura_cm: null, ...((obj.data.perfil && obj.data.perfil.altura_cm) ? obj.data.perfil : data.perfil) } };
     if (persist()) { for (const [id, v] of Object.entries(obj.fotos || {})) if (isFoto(v)) setFoto(id, v); setStatus('Copia restaurada'); renderAll(); }
   }, true);
 
