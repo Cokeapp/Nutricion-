@@ -222,7 +222,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 2.2</p>
+      <p class="note" style="text-align:center">Versión 2.3</p>
     </div>
   </section>
 </div>
@@ -324,6 +324,7 @@ table.hist td.r { white-space: nowrap; }
   const r1 = (x) => Math.round((Number(x) || 0) * 10) / 10;
   const fmt1 = (x) => String(r1(x)).replace('.', ',');
   const dec = (x) => String(x).replace('.', ',');
+  const fmtN = (x) => r1(x).toLocaleString('es-ES', { maximumFractionDigits: 1 });
   const pad = (n) => String(n).padStart(2, '0');
   const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const today = () => iso(new Date());
@@ -408,8 +409,8 @@ table.hist td.r { white-space: nowrap; }
     $('#dayLabel').textContent = nice(state.day);
     $('#nextDay').disabled = state.day >= today();
     const t = dayTotals(state.day);
-    $('#sumKcal').textContent = r0(t.k).toLocaleString('es-ES');
-    $('#sumProt').textContent = `${r0(t.p)} g`;
+    $('#sumKcal').textContent = fmtN(t.k);
+    $('#sumProt').textContent = `${fmtN(t.p)} g`;
     $('#ofKcal').textContent = `de ${data.goals.kcal.toLocaleString('es-ES')} kcal`;
     $('#ofProt').textContent = `de ${data.goals.proteina} g`;
     $('#barKcal').firstElementChild.style.width = `${Math.min(100, t.k / data.goals.kcal * 100)}%`;
@@ -424,7 +425,7 @@ table.hist td.r { white-space: nowrap; }
       const id = entry ? entry[0] : null, r = entry ? entry[1] : null;
       const tt = r ? regTotals(r) : null;
       const card = el('div', { class: 'card' }, el('div', { class: 'meal-head' }, el('h2', { text: name }),
-        el('span', { class: 'meal-tot num', text: tt ? `${r0(tt.k)} kcal · ${r0(tt.p)} g prot.` : '' })));
+        el('span', { class: 'meal-tot num', text: tt ? `${fmtN(tt.k)} kcal · ${fmtN(tt.p)} g prot.` : '' })));
       const foto = id ? getFoto(id) : null;
       if (foto) {
         const img = el('img', { class: 'mealphoto', src: foto, alt: `Foto de ${name.toLowerCase()}` });
@@ -433,13 +434,13 @@ table.hist td.r { white-space: nowrap; }
       }
       if (r && r.extra && (r.extra.texto || r.extra.kcal)) {
         card.append(el('div', { class: 'extra' }, el('b', { text: 'Estimado por Claude: ' }), `${r.extra.texto || ''} `,
-          el('span', { class: 'muted', text: `(${r0(r.extra.kcal)} kcal · ${r0(r.extra.prot)} g)` })));
+          el('span', { class: 'muted', text: `(${fmtN(r.extra.kcal)} kcal · ${fmtN(r.extra.prot)} g)` })));
       }
       if (r && (r.items || []).length) {
         const ul = el('ul', { class: 'items' });
         r.items.forEach((it, i) => ul.append(el('li', null,
           el('div', null, el('div', { text: it.alimento }), el('div', { class: 'q', text: it.cantidadTexto || (it.gramos ? `${r0(it.gramos)} g` : '') })),
-          el('div', { class: 'k num', text: `${r0(it.kcal)} kcal · ${fmt1(it.prot)} g` }),
+          el('div', { class: 'k num', text: `${fmtN(it.kcal)} kcal · ${fmtN(it.prot)} g` }),
           el('button', { class: 'del', 'aria-label': `Quitar ${it.alimento}`, onclick: () => removeItem(id, i) }, '✕'))));
         card.append(ul);
       }
@@ -554,9 +555,9 @@ table.hist td.r { white-space: nowrap; }
       const t = dayTotals(d), ok = t.p >= data.goals.proteina;
       const go = () => { state.day = d; showTab('hoy'); };
       const tr = el('tr', { style: 'cursor:pointer', tabindex: '0', onclick: go },
-        el('td', { text: nice(d) }), el('td', { class: 'r num', text: r0(t.k).toLocaleString('es-ES') }),
-        el('td', { class: 'r num', text: `${r0(t.p)} g` }),
-        el('td', { class: 'r' }, el('span', { class: `pill ${ok ? 'ok' : 'low'}`, text: ok ? 'Proteína OK' : `Faltan ${r0(data.goals.proteina - t.p)} g` })));
+        el('td', { text: nice(d) }), el('td', { class: 'r num', text: fmtN(t.k) }),
+        el('td', { class: 'r num', text: `${fmtN(t.p)} g` }),
+        el('td', { class: 'r' }, el('span', { class: `pill ${ok ? 'ok' : 'low'}`, text: ok ? 'Proteína OK' : `Faltan ${fmtN(data.goals.proteina - t.p)} g` })));
       tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
       tb.append(tr);
     }
@@ -619,7 +620,7 @@ table.hist td.r { white-space: nowrap; }
   }
   const grams = () => { if (!pick) return NaN; const a = num($('#addAmount').value); return $('#addUnit').value === 'u' ? a * Number(pick.gUnidad) : a; };
   function preview() { const g = grams(), ok = g > 0;
-    $('#pvK').textContent = ok ? r0(g * pick.kcal100 / 100) : '0'; $('#pvP').textContent = ok ? fmt1(g * pick.prot100 / 100) : '0';
+    $('#pvK').textContent = ok ? fmtN(g * pick.kcal100 / 100) : '0'; $('#pvP').textContent = ok ? fmt1(g * pick.prot100 / 100) : '0';
     $('#addConfirm').disabled = !ok; }
   $('#addAmount').addEventListener('input', preview);
   $('#addUnit').addEventListener('change', () => { const g = grams(); $('#addAmount').value = $('#addUnit').value === 'u' ? 1 : (g > 0 ? r0(g) : 100); preview(); });
@@ -630,7 +631,7 @@ table.hist td.r { white-space: nowrap; }
     const item = { alimento: pick.nombre, alimentoId: pick.id, gramos: r1(g), kcal: r1(g * pick.kcal100 / 100), prot: r1(g * pick.prot100 / 100),
       cantidadTexto: $('#addUnit').value === 'u' ? `${fmt1(a)} ${pick.unidad}${plural} · ${r0(g)} g` : `${r0(g)} g` };
     if (upsertReg(state.day, meal, (r) => { r.items = [...(r.items || []), item]; })) {
-      closeSheet('#addSheet'); setStatus(`Añadido: ${item.alimento} (${r0(item.kcal)} kcal)`); renderAll();
+      closeSheet('#addSheet'); setStatus(`Añadido: ${item.alimento} (${fmtN(item.kcal)} kcal)`); renderAll();
     }
   });
   $('#frConfirm').addEventListener('click', () => {
@@ -685,7 +686,14 @@ table.hist td.r { white-space: nowrap; }
     const body = { id: editing ? editing.id : `${slug(nombre).slice(0, 60)}-${Date.now().toString(36)}`, nombre, kcal100: r1(k), prot100: r1(p),
       unidad: unidad || null, gUnidad: unidad ? r1(gu) : null, nota: $('#fNote').value.trim() || null };
     data.foods = editing ? data.foods.map((x) => (x.id === editing.id ? body : x)) : [...data.foods, body];
-    if (persist()) { closeSheet('#foodSheet'); setStatus(`Guardado: ${nombre}`); renderAll(); }
+    // Al corregir un alimento, se recalculan las comidas ya apuntadas con él
+    let n = 0;
+    if (editing) for (const r of Object.values(data.regs)) for (const it of (r.items || [])) {
+      if (it.alimentoId !== body.id || !(Number(it.gramos) > 0)) continue;
+      const k2 = r1(it.gramos * body.kcal100 / 100), p2 = r1(it.gramos * body.prot100 / 100);
+      if (k2 !== it.kcal || p2 !== it.prot || it.alimento !== body.nombre) { it.kcal = k2; it.prot = p2; it.alimento = body.nombre; n++; }
+    }
+    if (persist()) { closeSheet('#foodSheet'); setStatus(`Guardado: ${nombre}` + (n ? ` · recalculado en ${n} ${n === 1 ? 'comida apuntada' : 'comidas apuntadas'}` : '')); renderAll(); }
   });
   $('#fDelete').addEventListener('click', () => {
     if (!editing) return; const b = $('#fDelete');
