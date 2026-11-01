@@ -127,6 +127,13 @@ table.hist td.r { white-space: nowrap; }
 .pill.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 .pill.low { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
 .note { font-size: .8rem; color: var(--muted); margin: 0; }
+.off { background: var(--sage-soft); border-color: transparent; }
+.off .btn svg { width: 20px; height: 20px; vertical-align: -5px; margin-right: 8px; }
+.offrow { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.off .btn.sec { background: var(--panel); border: 1px solid var(--line); }
+#offVideo { width: 100%; max-height: 240px; object-fit: cover; border-radius: 10px; background: #000; }
+#offMsg:empty { display: none; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--slate); font-weight: 700; text-decoration: underline; font-size: inherit; }
 .pill.bad { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .kpi { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .kpi .big { font-size: 2.4rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -222,7 +229,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 2.3</p>
+      <p class="note" style="text-align:center">Versión 2.4</p>
     </div>
   </section>
 </div>
@@ -257,7 +264,7 @@ table.hist td.r { white-space: nowrap; }
         <div class="preview"><span><b id="pvK">0</b> kcal</span><span><b id="pvP">0</b> g proteína</span></div>
         <button class="btn" id="addConfirm">Añadir a la comida</button>
       </div>
-      <p class="note">¿No está en la lista? Añádelo en la pestaña Alimentos con los datos de la etiqueta.</p>
+      <p class="note">¿No está en la lista? <button class="linkbtn" id="addToOff">Búscalo en Open Food Facts</button> (código de barras o nombre) o añádelo en Alimentos con los datos de la etiqueta.</p>
     </div>
     <div id="paneFree" class="stack" hidden>
       <p class="note">Para comidas fuera de casa o cuando ya sabes el total (por ejemplo, el que te ha calculado Claude a partir de una foto).</p>
@@ -287,6 +294,15 @@ table.hist td.r { white-space: nowrap; }
 <div class="sheet-bg" id="foodSheet" role="dialog" aria-modal="true" aria-labelledby="foodTitle">
   <div class="sheet">
     <div class="sheet-head"><h2 id="foodTitle">Alimento</h2><button class="iconbtn" data-close aria-label="Cerrar">✕</button></div>
+    <div class="card stack off" id="offBox">
+      <div><b>Rellenar desde Open Food Facts</b><div class="note">Base de datos abierta de productos envasados. Hace falta internet.</div></div>
+      <button class="btn" id="offScan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7V5h3M17 5h3v2M20 17v2h-3M7 19H4v-2M7 9v6M10 9v6M13 9v6M16.5 9v6"/></svg>Escanear código de barras</button>
+      <video id="offVideo" playsinline muted hidden></video>
+      <div class="offrow"><input type="text" id="offCode" inputmode="numeric" autocomplete="off" placeholder="o escribe el código" aria-label="Código de barras"><button class="btn sec" id="offCodeBtn">Buscar</button></div>
+      <div class="offrow"><input type="search" id="offQ" placeholder="o busca por nombre (skyr hacendado)" aria-label="Buscar por nombre"><button class="btn sec" id="offQBtn">Buscar</button></div>
+      <p class="note" id="offMsg" role="status"></p>
+      <ul class="foodlist" id="offList" hidden></ul>
+    </div>
     <label class="f" for="fName">Nombre<input type="text" id="fName" maxlength="80"></label>
     <div class="grid2">
       <label class="f" for="fKcal">kcal por 100 g<input type="text" id="fKcal" inputmode="decimal" autocomplete="off"></label>
@@ -579,9 +595,9 @@ table.hist td.r { white-space: nowrap; }
   $('#foodSearch').addEventListener('input', renderFoods);
   const openSheet = (id) => $(id).classList.add('open');
   const closeSheet = (id) => $(id).classList.remove('open');
-  document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('.sheet-bg').classList.remove('open')));
-  document.querySelectorAll('.sheet-bg').forEach((bg) => bg.addEventListener('click', (e) => { if (e.target === bg) bg.classList.remove('open'); }));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.sheet-bg.open').forEach((s) => s.classList.remove('open')); });
+  document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => { b.closest('.sheet-bg').classList.remove('open'); stopScan(); }));
+  document.querySelectorAll('.sheet-bg').forEach((bg) => bg.addEventListener('click', (e) => { if (e.target === bg) { bg.classList.remove('open'); stopScan(); } }));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('.sheet-bg.open').forEach((s) => s.classList.remove('open')); stopScan(); } });
   function fillMeals(sel, meal) { sel.replaceChildren(); const n = [...COMIDAS]; if (!n.includes(meal)) n.push(meal); for (const x of n) sel.append(el('option', { value: x, text: x })); sel.value = meal; }
 
   // ---------- añadir ----------
@@ -675,7 +691,10 @@ table.hist td.r { white-space: nowrap; }
     $('#foodTitle').textContent = f ? 'Editar alimento' : 'Nuevo alimento';
     $('#fName').value = f ? f.nombre : ''; $('#fKcal').value = f ? dec(f.kcal100) : ''; $('#fProt').value = f ? dec(f.prot100) : '';
     $('#fUnit').value = f && f.unidad ? f.unidad : ''; $('#fUnitG').value = f && f.gUnidad ? dec(f.gUnidad) : ''; $('#fNote').value = f && f.nota ? f.nota : '';
-    $('#fDelete').hidden = !f; $('#fErr').textContent = ''; openSheet('#foodSheet');
+    $('#fDelete').hidden = !f; $('#fErr').textContent = '';
+    $('#offBox').hidden = !!f; $('#offMsg').textContent = ''; $('#offList').hidden = true; $('#offList').replaceChildren(); $('#offCode').value = ''; $('#offQ').value = '';
+    if (!f) backToAdd = null;
+    openSheet('#foodSheet');
   }
   $('#newFood').addEventListener('click', () => openFood(null));
   $('#fSave').addEventListener('click', () => {
@@ -693,7 +712,10 @@ table.hist td.r { white-space: nowrap; }
       const k2 = r1(it.gramos * body.kcal100 / 100), p2 = r1(it.gramos * body.prot100 / 100);
       if (k2 !== it.kcal || p2 !== it.prot || it.alimento !== body.nombre) { it.kcal = k2; it.prot = p2; it.alimento = body.nombre; n++; }
     }
-    if (persist()) { closeSheet('#foodSheet'); setStatus(`Guardado: ${nombre}` + (n ? ` · recalculado en ${n} ${n === 1 ? 'comida apuntada' : 'comidas apuntadas'}` : '')); renderAll(); }
+    if (persist()) {
+      closeSheet('#foodSheet'); stopScan(); setStatus(`Guardado: ${nombre}` + (n ? ` · recalculado en ${n} ${n === 1 ? 'comida apuntada' : 'comidas apuntadas'}` : '')); renderAll();
+      if (!editing && backToAdd) { const meal = backToAdd; backToAdd = null; openAdd(meal); choose(body); }
+    }
   });
   $('#fDelete').addEventListener('click', () => {
     if (!editing) return; const b = $('#fDelete');
@@ -702,6 +724,95 @@ table.hist td.r { white-space: nowrap; }
     data.foods = data.foods.filter((x) => x.id !== editing.id);
     if (persist()) { closeSheet('#foodSheet'); setStatus(`Borrado: ${editing.nombre}`); renderAll(); }
   });
+
+  // ---------- Open Food Facts ----------
+  const OFF = 'https://world.openfoodfacts.org';
+  const OFF_FIELDS = 'code,product_name,product_name_es,generic_name_es,brands,quantity,serving_quantity,nutriments';
+  let backToAdd = null, scan = null;
+  const offMsg = (t) => { $('#offMsg').textContent = t || ''; };
+  async function offFetch(url, ms) {
+    const c = new AbortController(); const t = setTimeout(() => c.abort(), ms || 15000);
+    try { const r = await fetch(url, { signal: c.signal }); if (!r.ok) throw new Error('http ' + r.status); return await r.json(); }
+    finally { clearTimeout(t); }
+  }
+  function offMap(p) {
+    const n = p.nutriments || {};
+    let k = num(n['energy-kcal_100g']); if (!(k >= 0)) { const kj = num(n['energy_100g']); if (kj >= 0) k = kj / 4.184; }
+    const pr = num(n['proteins_100g']), sq = num(p.serving_quantity);
+    const name = String(p.product_name_es || p.product_name || p.generic_name_es || '').trim();
+    const brand = String(p.brands || '').split(',')[0].trim();
+    const nombre = [name || 'Producto sin nombre', brand && !norm(name).includes(norm(brand)) ? brand : ''].filter(Boolean).join(' · ');
+    return { code: String(p.code || ''), nombre: nombre.slice(0, 80), kcal: k >= 0 ? r1(k) : null, prot: pr >= 0 ? r1(pr) : null, gU: sq > 0 && sq < 2000 ? r1(sq) : null, cant: p.quantity || '' };
+  }
+  function offFill(m) {
+    $('#fName').value = m.nombre; $('#fKcal').value = m.kcal != null ? dec(m.kcal) : ''; $('#fProt').value = m.prot != null ? dec(m.prot) : '';
+    $('#fUnit').value = m.gU ? 'ración' : ''; $('#fUnitG').value = m.gU ? dec(m.gU) : '';
+    $('#fNote').value = `Open Food Facts · ${m.code}`.slice(0, 120);
+    $('#offList').hidden = true; stopScan();
+    offMsg(m.kcal == null || m.prot == null ? 'Encontrado, pero le faltan datos: complétalos con la etiqueta y pulsa Guardar.'
+      : 'Encontrado. Compara los datos con la etiqueta (y el peso de la ración) y pulsa Guardar.');
+    $('#fName').scrollIntoView({ block: 'center' });
+  }
+  const offErr = (e, what) => offMsg(!navigator.onLine ? 'Sin conexión: para buscar en Open Food Facts hace falta internet.'
+    : e && e.name === 'AbortError' ? 'Open Food Facts no responde. Prueba de nuevo en un rato.'
+    : what === 'name' ? 'La búsqueda por nombre de Open Food Facts no responde ahora mismo (le pasa a menudo). Prueba con el código de barras o más tarde.'
+    : 'No se ha podido consultar Open Food Facts. Prueba de nuevo en un rato.');
+  async function offByCode(raw) {
+    const code = String(raw || '').replace(/\D/g, '');
+    if (code.length < 8 || code.length > 14) { offMsg('Escribe el código completo: los 8 o 13 números que hay debajo de las barras.'); return; }
+    offMsg('Buscando el código ' + code + '…'); $('#offList').hidden = true;
+    try {
+      const j = await offFetch(`${OFF}/api/v2/product/${code}.json?fields=${OFF_FIELDS}`);
+      if (!j || j.status !== 1 || !j.product) { offMsg('Ese código no está en Open Food Facts. Rellena los datos con la etiqueta.'); return; }
+      offFill(offMap({ ...j.product, code }));
+    } catch (e) { offErr(e, 'code'); }
+  }
+  async function offByName(q) {
+    q = String(q || '').trim(); if (q.length < 3) { offMsg('Escribe al menos 3 letras.'); return; }
+    offMsg('Buscando «' + q + '»…'); const ul = $('#offList'); ul.replaceChildren(); ul.hidden = true;
+    try {
+      const j = await offFetch(`${OFF}/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=20&fields=${OFF_FIELDS}`, 20000);
+      const items = (j.products || []).map(offMap);
+      if (!items.length) { offMsg('No he encontrado nada con «' + q + '». Prueba con menos palabras o con el código de barras.'); return; }
+      offMsg('Toca el producto que buscas:');
+      for (const m of items) ul.append(el('li', null, el('button', { onclick: () => offFill(m) },
+        el('span', { text: m.nombre + (m.cant ? ` (${m.cant})` : '') }),
+        el('span', { class: 'meta', text: m.kcal != null ? `${fmtN(m.kcal)} kcal · ${m.prot != null ? fmtN(m.prot) : '?'} g` : 'sin datos' }))));
+      ul.hidden = false;
+    } catch (e) { offErr(e, 'name'); }
+  }
+  async function startScan() {
+    if (scan) { stopScan(); offMsg(''); return; }
+    if (!('BarcodeDetector' in window)) { offMsg('Este navegador no puede leer códigos de barras con la cámara. Escribe los números que hay debajo de las barras.'); $('#offCode').focus(); return; }
+    let det; try { det = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] }); } catch { det = new BarcodeDetector(); }
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }); }
+    catch { offMsg('No se ha podido abrir la cámara. Da permiso de cámara a la app o escribe el código.'); return; }
+    const v = $('#offVideo'); v.srcObject = stream; v.hidden = false;
+    try { await v.play(); } catch { /* nada */ }
+    scan = { stream, timer: null }; $('#offScan').lastChild.textContent = 'Parar cámara'; offMsg('Apunta al código de barras del envase…');
+    const loop = async () => {
+      if (!scan) return;
+      try { const r = await det.detect(v); if (r && r.length && r[0].rawValue) { const code = r[0].rawValue; stopScan(); if (navigator.vibrate) navigator.vibrate(80); $('#offCode').value = code; offByCode(code); return; } } catch { /* sigue */ }
+      if (scan) scan.timer = setTimeout(loop, 250);
+    };
+    loop();
+  }
+  function stopScan() {
+    if (!scan) return;
+    clearTimeout(scan.timer); scan.stream.getTracks().forEach((t) => t.stop()); scan = null;
+    const v = $('#offVideo'); v.srcObject = null; v.hidden = true; $('#offScan').lastChild.textContent = 'Escanear código de barras';
+  }
+  $('#offScan').addEventListener('click', startScan);
+  $('#offCodeBtn').addEventListener('click', () => offByCode($('#offCode').value));
+  $('#offCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') offByCode($('#offCode').value); });
+  $('#offQBtn').addEventListener('click', () => offByName($('#offQ').value));
+  $('#offQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') offByName($('#offQ').value); });
+  $('#addToOff').addEventListener('click', () => {
+    const meal = $('#addMeal').value, q = $('#addSearch').value.trim();
+    closeSheet('#addSheet'); openFood(null); backToAdd = meal; $('#offQ').value = q;
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopScan(); });
 
   // ---------- peso y objetivos ----------
   $('#wDate').value = today();
