@@ -47,7 +47,10 @@ button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 3px solid var(--sage); outline-offset: 2px; }
 
-header.top { padding: 14px 0 8px; }
+header.top { padding: 14px 0 8px; position: sticky; top: 0; z-index: 5; background: var(--bg); }
+.toprow { display: flex; align-items: center; gap: 10px; min-height: 42px; }
+#backBtn svg { width: 22px; height: 22px; }
+#backBtn { color: var(--slate); }
 .status { font-size: .85rem; color: var(--muted); min-height: 1.2em; }
 .status.bad { color: var(--accent); }
 
@@ -66,11 +69,20 @@ header.top { padding: 14px 0 8px; }
 
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; }
 .stack { display: flex; flex-direction: column; gap: 12px; }
-.meal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
-  margin: -14px -14px 4px; padding: 11px 14px; background: var(--head-bg); color: var(--head-ink); border-radius: var(--r) var(--r) 0 0; }
-.meal-head h2 { font-size: 1.12rem; font-weight: 800; letter-spacing: .2px; }
-.meal-head .meal-tot { color: var(--head-sub); }
+.meal-head { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; width: calc(100% + 28px);
+  margin: -14px -14px 4px; padding: 12px 14px; border: 0; text-align: left; background: var(--head-bg); color: var(--head-ink); }
+.meal-head .mh-name { display: block; font-size: 1.12rem; font-weight: 800; letter-spacing: .2px; }
+.meal-head .mh-sub { display: block; font-size: .8rem; color: var(--head-sub); margin-top: 1px; }
+.meal-head .meal-tot { color: var(--head-ink); font-weight: 700; text-align: right; line-height: 1.25; }
+.meal-head .meal-tot small { display: block; font-weight: 500; color: var(--head-sub); font-size: .8rem; }
+.meal-head .chev { width: 22px; height: 22px; transition: transform .2s ease; }
+.meal-card.open .meal-head .chev { transform: rotate(180deg); }
 .meal-card { padding-top: 14px; overflow: hidden; }
+.meal-card:not(.open) { padding-bottom: 0; }
+.meal-card:not(.open) .meal-head { margin-bottom: 0; }
+.meal-card .meal-body[hidden] { display: none; }
+.meal-body.stack { gap: 0; }
+#meals.stack { gap: 10px; }
 .daylabel { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 9px 12px; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
 .daylabel svg { width: 18px; height: 18px; flex: 0 0 auto; color: var(--slate); }
 .daylabel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -171,7 +183,7 @@ table.hist td.r { white-space: nowrap; }
 <body>
 <div class="app">
   <header class="top">
-    <h1>Diario de comidas</h1>
+    <div class="toprow"><button class="iconbtn" id="backBtn" aria-label="Atrás" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><h1 id="appTitle">Diario de comidas</h1></div>
     <div class="status" id="status" role="status"></div>
   </header>
 
@@ -255,7 +267,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 2.6</p>
+      <p class="note" style="text-align:center">Versión 2.8</p>
     </div>
   </section>
 </div>
@@ -469,7 +481,8 @@ table.hist td.r { white-space: nowrap; }
   }
   const getFoto = (id) => { const f = lsGet(FOTO + id); return isFoto(f) ? f : null; };
 
-  const state = { day: today() };
+  const state = { day: today(), open: null, openDay: null, tab: 'hoy', tabHist: [] };
+  const openMeal = (name) => { state.open = name; state.openDay = state.day; };
   data = load();
   if (lsGet(KEY) == null) setStatus('Este navegador no deja guardar datos. Abre la app desde su icono.', true);
 
@@ -509,16 +522,25 @@ table.hist td.r { white-space: nowrap; }
       const entry = regs.find(([, x]) => x.comida === name);
       const id = entry ? entry[0] : null, r = entry ? entry[1] : null;
       const tt = r ? regTotals(r) : null;
-      const card = el('div', { class: 'card meal-card' }, el('div', { class: 'meal-head' }, el('h2', { text: name }),
-        el('span', { class: 'meal-tot num', text: tt ? `${fmtN(tt.k)} kcal · ${fmtN(tt.p)} g prot.` : '' })));
+      const isOpen = state.openDay === state.day && state.open === name;
+      const nItems = r ? (r.items || []).length + (r.extra && (r.extra.texto || r.extra.kcal) ? 1 : 0) : 0;
+      const head = el('button', { class: 'meal-head', 'aria-expanded': String(isOpen), onclick: () => {
+          if (isOpen) state.open = null; else openMeal(name);
+          renderDay(); if (!isOpen) { const c = [...document.querySelectorAll('#meals .meal-card')].find((x) => x.dataset.meal === name); if (c) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+        } },
+        el('span', null, el('span', { class: 'mh-name', text: name }), el('span', { class: 'mh-sub', text: nItems ? `${nItems} ${nItems === 1 ? 'alimento' : 'alimentos'}` : 'Sin apuntar' })),
+        el('span', { class: 'meal-tot num' }, tt ? `${fmtN(tt.k)} kcal` : '', tt ? el('small', { text: `${fmtN(tt.p)} g prot.` }) : null));
+      head.insertAdjacentHTML('beforeend', '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>');
+      const body = el('div', { class: 'meal-body stack' }); body.hidden = !isOpen;
+      const card = el('div', { class: 'card meal-card' + (isOpen ? ' open' : ''), 'data-meal': name }, head, body);
       const foto = id ? getFoto(id) : null;
       if (foto) {
         const img = el('img', { class: 'mealphoto', src: foto, alt: `Foto de ${name.toLowerCase()}` });
         img.addEventListener('click', () => img.classList.toggle('big'));
-        card.append(img, el('button', { class: 'photo-del', onclick: () => delFoto(id) }, 'Quitar la foto'));
+        body.append(img, el('button', { class: 'photo-del', onclick: () => delFoto(id) }, 'Quitar la foto'));
       }
       if (r && r.extra && (r.extra.texto || r.extra.kcal)) {
-        card.append(el('div', { class: 'extra' }, el('b', { text: 'Estimado por Claude: ' }), `${r.extra.texto || ''} `,
+        body.append(el('div', { class: 'extra' }, el('b', { text: 'Estimado por Claude: ' }), `${r.extra.texto || ''} `,
           el('span', { class: 'muted', text: `(${fmtN(r.extra.kcal)} kcal · ${fmtN(r.extra.prot)} g)` })));
       }
       if (r && (r.items || []).length) {
@@ -527,13 +549,14 @@ table.hist td.r { white-space: nowrap; }
           el('div', null, el('div', { text: it.alimento }), el('div', { class: 'q', text: it.cantidadTexto || (it.gramos ? `${r0(it.gramos)} g` : '') })),
           el('div', { class: 'k num', text: `${fmtN(it.kcal)} kcal · ${fmtN(it.prot)} g` }),
           el('button', { class: 'del', 'aria-label': `Quitar ${it.alimento}`, onclick: () => removeItem(id, i) }, '✕'))));
-        card.append(ul);
+        body.append(ul);
       }
       const phB = el('button', { class: 'photobtn', 'aria-label': `Foto del plato: ${name.toLowerCase()}`, onclick: () => pickPhoto(name) });
       phB.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Foto';
-      card.append(el('div', { class: 'mealbtns' }, el('button', { class: 'addbtn', onclick: () => openAdd(name) }, '+ Añadir'), phB));
+      body.append(el('div', { class: 'mealbtns' }, el('button', { class: 'addbtn', onclick: () => openAdd(name) }, '+ Añadir'), phB));
       box.append(card);
     }
+    if (typeof updBack === 'function') updBack();
   }
   function removeItem(id, i) {
     const r = data.regs[id]; if (!r) return;
@@ -653,10 +676,13 @@ table.hist td.r { white-space: nowrap; }
   const renderAll = () => { renderDay(); renderFoods(); renderWeights(); renderHist(); };
 
   // ---------- pestañas y hojas ----------
-  function showTab(name) {
+  const TITULOS = { hoy: 'Diario de comidas', alimentos: 'Alimentos y recetas', peso: 'Peso y medidas', historial: 'Historial' };
+  function showTab(name, fromBack) {
+    if (!fromBack && name !== state.tab) { state.tabHist.push(state.tab); if (state.tabHist.length > 30) state.tabHist.shift(); }
+    state.tab = name; $('#appTitle').textContent = TITULOS[name] || 'Diario de comidas';
     for (const b of document.querySelectorAll('nav.tabs button')) b.setAttribute('aria-selected', String(b.dataset.tab === name));
     for (const s of ['hoy', 'alimentos', 'peso', 'historial']) $('#tab-' + s).hidden = s !== name;
-    renderAll(); window.scrollTo(0, 0);
+    renderAll(); window.scrollTo(0, 0); updBack();
   }
   document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
   $('#prevDay').addEventListener('click', () => { state.day = addDays(state.day, -1); renderDay(); });
@@ -688,11 +714,31 @@ table.hist td.r { white-space: nowrap; }
   $('#calToday').addEventListener('click', () => { state.day = today(); closeSheet('#calSheet'); renderDay(); });
   $('#nextDay').addEventListener('click', () => { if (state.day < today()) { state.day = addDays(state.day, 1); renderDay(); } });
   $('#foodSearch').addEventListener('input', renderFoods);
-  const openSheet = (id) => $(id).classList.add('open');
-  const closeSheet = (id) => $(id).classList.remove('open');
-  document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => { b.closest('.sheet-bg').classList.remove('open'); stopScan(); }));
-  document.querySelectorAll('.sheet-bg').forEach((bg) => bg.addEventListener('click', (e) => { if (e.target === bg) { bg.classList.remove('open'); stopScan(); } }));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('.sheet-bg.open').forEach((s) => s.classList.remove('open')); stopScan(); } });
+  const openSheet = (id) => { $(id).classList.add('open'); updBack(); };
+  const closeSheet = (id) => { $(id).classList.remove('open'); updBack(); };
+  // ---------- atrás (botón de la app y gesto «atrás» del móvil) ----------
+  let armed = false;
+  const openSheets = () => [...document.querySelectorAll('.sheet-bg.open')];
+  const hasBack = () => openSheets().length > 0 || state.tab !== 'hoy' || state.tabHist.length > 0 || (state.open && state.openDay === state.day);
+  function goBack() {
+    const sh = openSheets();
+    if (sh.length) { sh[sh.length - 1].classList.remove('open'); stopScan(); updBack(); return; }
+    if (state.tab !== 'hoy' || state.tabHist.length) {
+      let prev = state.tabHist.pop(); while (prev === state.tab && state.tabHist.length) prev = state.tabHist.pop();
+      showTab(prev && prev !== state.tab ? prev : 'hoy', true); return;
+    }
+    if (state.open) { state.open = null; renderDay(); }
+    updBack();
+  }
+  function updBack() {
+    const b = hasBack(), btn = document.getElementById('backBtn'); if (btn) btn.hidden = !b;
+    if (b && !armed) { try { history.pushState({ diario: 1 }, ''); armed = true; } catch { /* nada */ } }
+  }
+  window.addEventListener('popstate', () => { armed = false; if (hasBack()) goBack(); });
+  $('#backBtn').addEventListener('click', () => { if (armed) history.back(); else goBack(); });
+  document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => { b.closest('.sheet-bg').classList.remove('open'); stopScan(); updBack(); }));
+  document.querySelectorAll('.sheet-bg').forEach((bg) => bg.addEventListener('click', (e) => { if (e.target === bg) { bg.classList.remove('open'); stopScan(); updBack(); } }));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('.sheet-bg.open').forEach((s) => s.classList.remove('open')); stopScan(); updBack(); } });
   function fillMeals(sel, meal) { sel.replaceChildren(); const n = [...COMIDAS]; if (!n.includes(meal)) n.push(meal); for (const x of n) sel.append(el('option', { value: x, text: x })); sel.value = meal; }
 
   // ---------- añadir ----------
@@ -742,7 +788,7 @@ table.hist td.r { white-space: nowrap; }
     const item = { alimento: pick.nombre, alimentoId: pick.id, gramos: r1(g), kcal: r1(g * pick.kcal100 / 100), prot: r1(g * pick.prot100 / 100),
       cantidadTexto: $('#addUnit').value === 'u' ? `${fmt1(a)} ${pick.unidad}${plural} · ${r0(g)} g` : `${r0(g)} g` };
     if (upsertReg(state.day, meal, (r) => { r.items = [...(r.items || []), item]; })) {
-      closeSheet('#addSheet'); setStatus(`Añadido: ${item.alimento} (${fmtN(item.kcal)} kcal)`); renderAll();
+      closeSheet('#addSheet'); openMeal(meal); setStatus(`Añadido: ${item.alimento} (${fmtN(item.kcal)} kcal)`); renderAll();
     }
   });
   $('#frConfirm').addEventListener('click', () => {
@@ -751,7 +797,7 @@ table.hist td.r { white-space: nowrap; }
     if (!(k >= 0) || !(p >= 0)) { setStatus('Pon las calorías y la proteína.', true); return; }
     const meal = $('#addMeal').value;
     const item = { alimento: t, alimentoId: null, gramos: null, kcal: r1(k), prot: r1(p), cantidadTexto: 'a mano' };
-    if (upsertReg(state.day, meal, (r) => { r.items = [...(r.items || []), item]; })) { closeSheet('#addSheet'); setStatus(`Añadido: ${t}`); renderAll(); }
+    if (upsertReg(state.day, meal, (r) => { r.items = [...(r.items || []), item]; })) { closeSheet('#addSheet'); openMeal(meal); setStatus(`Añadido: ${t}`); renderAll(); }
   });
 
   // ---------- foto ----------
@@ -776,7 +822,7 @@ table.hist td.r { white-space: nowrap; }
     if (!photo || !photo.thumb) return;
     const meal = $('#phMeal').value, id = regId(state.day, meal);
     if (!data.regs[id]) { data.regs[id] = { fecha: state.day, comida: meal, items: [], extra: null, actualizado: new Date().toISOString() }; if (!persist()) return; }
-    if (setFoto(id, photo.thumb)) { closeSheet('#photoSheet'); setStatus(`Foto guardada en ${meal.toLowerCase()}`); photo = null; renderAll(); }
+    if (setFoto(id, photo.thumb)) { closeSheet('#photoSheet'); openMeal(meal); setStatus(`Foto guardada en ${meal.toLowerCase()}`); photo = null; renderAll(); }
   });
 
   // ---------- alimentos ----------
