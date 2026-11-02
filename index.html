@@ -18,6 +18,7 @@
   --bg: #f4f5f2; --panel: #ffffff; --ink: #1e2b2e; --muted: #5d6e6c; --line: #dde3df;
   --slate: #2e4a52; --sage: #69a297; --sage-soft: #e3efeb; --accent: #b85042;
   --ok: #2f7d5b; --warn: #b7791f;
+  --head-bg: #2e4a52; --head-ink: #ffffff; --head-sub: rgba(255,255,255,.82);
   --r: 12px; color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -25,6 +26,7 @@
     --bg: #111a1c; --panel: #18252a; --ink: #e7eeec; --muted: #9fb2ae; --line: #2b3d42;
     --slate: #8fc0b5; --sage: #7fb8ab; --sage-soft: #1f3335; --accent: #e07a68;
     --ok: #6fc59b; --warn: #e3b25a; color-scheme: dark;
+    --head-bg: #2a4f56; --head-ink: #f2f7f6; --head-sub: rgba(242,247,246,.8);
   }
   .summary, .btn { color: #0f1a1c !important; }
   .btn.sec { color: var(--slate) !important; }
@@ -64,7 +66,28 @@ header.top { padding: 14px 0 8px; }
 
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; }
 .stack { display: flex; flex-direction: column; gap: 12px; }
-.meal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.meal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  margin: -14px -14px 4px; padding: 11px 14px; background: var(--head-bg); color: var(--head-ink); border-radius: var(--r) var(--r) 0 0; }
+.meal-head h2 { font-size: 1.12rem; font-weight: 800; letter-spacing: .2px; }
+.meal-head .meal-tot { color: var(--head-sub); }
+.meal-card { padding-top: 14px; overflow: hidden; }
+.daylabel { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 9px 12px; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+.daylabel svg { width: 18px; height: 18px; flex: 0 0 auto; color: var(--slate); }
+.daylabel span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calnav { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; gap: 8px; }
+.calnav b { text-align: center; font-size: 1.05rem; text-transform: capitalize; }
+.calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.calgrid .wd { text-align: center; font-size: .75rem; font-weight: 700; color: var(--muted); padding: 4px 0; }
+.calgrid button { position: relative; border: 0; background: var(--panel); border-radius: 10px; aspect-ratio: 1 / 1; font-weight: 700; font-size: .98rem; font-variant-numeric: tabular-nums; }
+.calgrid button:disabled { opacity: .3; cursor: default; }
+.calgrid button.today { box-shadow: inset 0 0 0 2px var(--sage); }
+.calgrid button.sel { background: var(--head-bg); color: var(--head-ink); }
+.calgrid button i { position: absolute; left: 50%; bottom: 6px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--warn); }
+.calgrid button i.ok { background: var(--ok); }
+.calgrid button.sel i { box-shadow: 0 0 0 1.5px var(--head-bg); }
+.calleg { display: flex; gap: 14px; font-size: .8rem; color: var(--muted); flex-wrap: wrap; }
+.calleg span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; background: var(--warn); }
+.calleg span.ok::before { background: var(--ok); }
 .meal-tot { font-size: .9rem; color: var(--muted); white-space: nowrap; }
 .items { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; }
 .items li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
@@ -155,7 +178,7 @@ table.hist td.r { white-space: nowrap; }
   <section id="tab-hoy">
     <div class="daynav">
       <button class="iconbtn" id="prevDay" aria-label="Día anterior">‹</button>
-      <div class="daylabel" id="dayLabel">—</div>
+      <button class="daylabel" id="dayBtn" aria-label="Elegir día en el calendario"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span id="dayLabel">—</span></button>
       <button class="iconbtn" id="nextDay" aria-label="Día siguiente">›</button>
     </div>
     <div class="summary" aria-label="Resumen del día">
@@ -232,7 +255,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 2.5</p>
+      <p class="note" style="text-align:center">Versión 2.6</p>
     </div>
   </section>
 </div>
@@ -245,6 +268,17 @@ table.hist td.r { white-space: nowrap; }
     <button role="tab" data-tab="historial" aria-selected="false">Historial</button>
   </div>
 </nav>
+
+<!-- Calendario -->
+<div class="sheet-bg" id="calSheet" role="dialog" aria-modal="true" aria-labelledby="calTitle">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="calTitle">Elegir día</h2><button class="iconbtn" data-close aria-label="Cerrar">✕</button></div>
+    <div class="calnav"><button class="iconbtn" id="calPrev" aria-label="Mes anterior">‹</button><b id="calMonth">—</b><button class="iconbtn" id="calNext" aria-label="Mes siguiente">›</button></div>
+    <div class="calgrid" id="calGrid"></div>
+    <div class="calleg"><span class="ok">Proteína OK</span><span>Faltó proteína</span></div>
+    <button class="btn sec" id="calToday">Ir a hoy</button>
+  </div>
+</div>
 
 <!-- Añadir a una comida -->
 <div class="sheet-bg" id="addSheet" role="dialog" aria-modal="true" aria-labelledby="addTitle">
@@ -475,7 +509,7 @@ table.hist td.r { white-space: nowrap; }
       const entry = regs.find(([, x]) => x.comida === name);
       const id = entry ? entry[0] : null, r = entry ? entry[1] : null;
       const tt = r ? regTotals(r) : null;
-      const card = el('div', { class: 'card' }, el('div', { class: 'meal-head' }, el('h2', { text: name }),
+      const card = el('div', { class: 'card meal-card' }, el('div', { class: 'meal-head' }, el('h2', { text: name }),
         el('span', { class: 'meal-tot num', text: tt ? `${fmtN(tt.k)} kcal · ${fmtN(tt.p)} g prot.` : '' })));
       const foto = id ? getFoto(id) : null;
       if (foto) {
@@ -626,6 +660,32 @@ table.hist td.r { white-space: nowrap; }
   }
   document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
   $('#prevDay').addEventListener('click', () => { state.day = addDays(state.day, -1); renderDay(); });
+  // ---------- calendario ----------
+  const MESES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  let calM = null;
+  const monthAdd = (ym, n) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+  function renderCal() {
+    const [y, m] = calM.split('-').map(Number), hoy = today();
+    $('#calMonth').textContent = `${MESES_L[m - 1]} ${y}`;
+    $('#calNext').disabled = calM >= hoy.slice(0, 7);
+    const conDatos = new Set(Object.values(data.regs).map((r) => r.fecha));
+    const g = $('#calGrid'); g.replaceChildren();
+    for (const w of ['L', 'M', 'X', 'J', 'V', 'S', 'D']) g.append(el('div', { class: 'wd', text: w }));
+    const off = (new Date(y, m - 1, 1).getDay() + 6) % 7, n = new Date(y, m, 0).getDate();
+    for (let i = 0; i < off; i++) g.append(el('div'));
+    for (let d = 1; d <= n; d++) {
+      const f = `${y}-${pad(m)}-${pad(d)}`, fut = f > hoy;
+      const b = el('button', { class: [f === hoy ? 'today' : '', f === state.day ? 'sel' : ''].join(' ').trim() || null, 'aria-label': nice(f) + (conDatos.has(f) ? ', con comidas' : ''),
+        onclick: () => { state.day = f; closeSheet('#calSheet'); renderDay(); window.scrollTo(0, 0); } }, String(d));
+      if (fut) b.disabled = true;
+      if (conDatos.has(f)) b.append(el('i', { class: dayTotals(f).p >= data.goals.proteina ? 'ok' : null }));
+      g.append(b);
+    }
+  }
+  $('#dayBtn').addEventListener('click', () => { calM = state.day.slice(0, 7); renderCal(); openSheet('#calSheet'); });
+  $('#calPrev').addEventListener('click', () => { calM = monthAdd(calM, -1); renderCal(); });
+  $('#calNext').addEventListener('click', () => { if (calM < today().slice(0, 7)) { calM = monthAdd(calM, 1); renderCal(); } });
+  $('#calToday').addEventListener('click', () => { state.day = today(); closeSheet('#calSheet'); renderDay(); });
   $('#nextDay').addEventListener('click', () => { if (state.day < today()) { state.day = addDays(state.day, 1); renderDay(); } });
   $('#foodSearch').addEventListener('input', renderFoods);
   const openSheet = (id) => $(id).classList.add('open');
