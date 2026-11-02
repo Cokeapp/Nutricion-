@@ -171,6 +171,18 @@ table.hist td.r { white-space: nowrap; }
 .rsum { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: .95rem; }
 .rsum b { font-variant-numeric: tabular-nums; }
 .tag { display: inline-block; font-size: .7rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: var(--sage-soft); color: var(--slate); margin-left: 6px; vertical-align: 1px; }
+.planline { margin: -6px 2px 12px; font-size: .85rem; color: var(--muted); }
+.planline b { color: var(--ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.chips button { border: 1.5px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 9px 14px; font-weight: 700; font-size: .95rem; }
+.chips button[aria-pressed=true] { background: var(--head-bg); border-color: var(--head-bg); color: var(--head-ink); }
+.chips button[aria-pressed=true]::before { content: '✓ '; }
+.plorder li { grid-template-columns: 1fr auto auto; padding: 4px 0; color: var(--ink); font-size: 1rem; }
+.plorder li:first-child { border-top: 0; }
+.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.plist:empty { display: none; }
+.plist button { width: 100%; text-align: left; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; }
+.plist .pd { font-size: .85rem; color: var(--muted); }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--slate); font-weight: 700; text-decoration: underline; font-size: inherit; }
 .pill.bad { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .kpi { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -197,6 +209,7 @@ table.hist td.r { white-space: nowrap; }
       <div class="stat"><div class="lbl">Calorías</div><div class="val" id="sumKcal">0</div><div class="of" id="ofKcal"></div><div class="bar" id="barKcal"><i style="width:0"></i></div></div>
       <div class="stat"><div class="lbl">Proteína</div><div class="val" id="sumProt">0 g</div><div class="of" id="ofProt"></div><div class="bar" id="barProt"><i style="width:0"></i></div></div>
     </div>
+    <p class="planline" id="planLine" hidden></p>
     <div class="stack" id="meals"></div>
   </section>
 
@@ -248,6 +261,12 @@ table.hist td.r { white-space: nowrap; }
         </div>
         <button class="btn sec" id="saveGoals">Guardar objetivos</button>
       </div>
+      <div class="card stack">
+        <h2>Comidas del día</h2>
+        <p class="note">Elige cuántas comidas haces, y cuáles, durante un periodo (por ejemplo, con ayuno: Comida y Cena). En esos días la pantalla Día muestra solo esas y te dice cuánta proteína toca en cada una. Fuera de los periodos salen las cuatro de siempre.</p>
+        <ul class="plist" id="planList"></ul>
+        <button class="btn sec" id="newPlan">+ Nuevo periodo</button>
+      </div>
     </div>
   </section>
 
@@ -267,7 +286,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 2.8</p>
+      <p class="note" style="text-align:center">Versión 2.9</p>
     </div>
   </section>
 </div>
@@ -280,6 +299,23 @@ table.hist td.r { white-space: nowrap; }
     <button role="tab" data-tab="historial" aria-selected="false">Historial</button>
   </div>
 </nav>
+
+<!-- Periodo de comidas -->
+<div class="sheet-bg" id="planSheet" role="dialog" aria-modal="true" aria-labelledby="planTitle">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="planTitle">Nuevo periodo</h2><button class="iconbtn" data-close aria-label="Cerrar">✕</button></div>
+    <div class="grid2">
+      <label class="f" for="plFrom">Desde<input type="date" id="plFrom"></label>
+      <label class="f" for="plTo">Hasta (opcional)<input type="date" id="plTo"></label>
+    </div>
+    <div class="f">Comidas de cada día<div class="chips" id="plChips"></div></div>
+    <div class="offrow"><input type="text" id="plOther" maxlength="30" placeholder="Otra comida (pre-entreno…)" aria-label="Otra comida"><button class="btn sec" id="plAdd">Añadir</button></div>
+    <div class="f" id="plOrderBox">En este orden<ul class="items plorder" id="plOrder"></ul></div>
+    <p class="note" id="plInfo"></p>
+    <div class="row"><button class="btn grow" id="plSave">Guardar periodo</button><button class="btn danger" id="plDelete">Borrar</button></div>
+    <p class="status bad" id="plErr"></p>
+  </div>
+</div>
 
 <!-- Calendario -->
 <div class="sheet-bg" id="calSheet" role="dialog" aria-modal="true" aria-labelledby="calTitle">
@@ -458,6 +494,7 @@ table.hist td.r { white-space: nowrap; }
     if (!d || typeof d !== 'object' || !Array.isArray(d.foods)) { d = JSON.parse(JSON.stringify(SEED)); persist(d, true); }
     d.regs = d.regs || {}; d.pesos = d.pesos || {}; d.goals = { ...DEF_GOALS, ...(d.goals || {}) };
     d.perfil = { altura_cm: null, ...(d.perfil || {}) };
+    d.planes = Array.isArray(d.planes) ? d.planes : [];
     return d;
   }
   function fotoKeys() { const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(FOTO)) out.push(k); } } catch { /* nada */ } return out.sort(); }
@@ -491,6 +528,9 @@ table.hist td.r { white-space: nowrap; }
     for (const it of (r.items || [])) { k += Number(it.kcal) || 0; p += Number(it.prot) || 0; }
     if (r.extra) { k += Number(r.extra.kcal) || 0; p += Number(r.extra.prot) || 0; }
     return { k, p }; };
+  const planFor = (d) => (data.planes || []).filter((p) => p.desde <= d && (!p.hasta || d <= p.hasta)).sort((a, b) => (a.desde < b.desde ? 1 : -1))[0] || null;
+  const mealsFor = (d) => { const p = planFor(d); return p && p.comidas && p.comidas.length ? [...p.comidas] : [...COMIDAS]; };
+  const listaY = (a) => (a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1]);
   const dayRegs = (d) => Object.entries(data.regs).filter(([, r]) => r.fecha === d);
   const dayTotals = (d) => dayRegs(d).reduce((a, [, r]) => { const t = regTotals(r); a.k += t.k; a.p += t.p; return a; }, { k: 0, p: 0 });
   const regId = (fecha, comida) => `${fecha}_${slug(comida)}`;
@@ -516,7 +556,12 @@ table.hist td.r { white-space: nowrap; }
     $('#barProt').firstElementChild.style.width = `${Math.min(100, t.p / data.goals.proteina * 100)}%`;
     const box = $('#meals'); box.replaceChildren();
     const regs = dayRegs(state.day);
-    const names = [...COMIDAS];
+    const names = mealsFor(state.day);
+    const plan = planFor(state.day), pl = $('#planLine');
+    if (plan) {
+      pl.hidden = false; pl.replaceChildren(`Periodo de ${names.length} ${names.length === 1 ? 'comida' : 'comidas'}: `, el('b', { text: listaY(names) }),
+        ` · ≈${fmtN(data.goals.proteina / names.length)} g de proteína en cada una`);
+    } else pl.hidden = true;
     for (const [, r] of regs) if (!names.includes(r.comida)) names.push(r.comida);
     for (const name of names) {
       const entry = regs.find(([, x]) => x.comida === name);
@@ -673,7 +718,76 @@ table.hist td.r { white-space: nowrap; }
     const nf = fotoKeys().length, size = bytes < 1048576 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1).replace('.', ',')} MB`;
     $('#storeInfo').textContent = `Guardado en este móvil: ${Object.keys(data.regs).length} comidas, ${nf} ${nf === 1 ? 'foto' : 'fotos'} y ${data.foods.length} alimentos (${size} de unos 5 MB). Si se llena, se borran primero las fotos más antiguas.`;
   }
-  const renderAll = () => { renderDay(); renderFoods(); renderWeights(); renderHist(); };
+  // ---------- periodos de comidas ----------
+  const fdia = (f) => { const [y, m, d] = f.split('-').map(Number); return `${d} ${MESES[m - 1]} ${y}`; };
+  function renderPlans() {
+    const ul = $('#planList'); ul.replaceChildren(); const hoy = today();
+    const list = [...(data.planes || [])].sort((a, b) => (a.desde < b.desde ? 1 : -1));
+    for (const p of list) {
+      const now = p.desde <= hoy && (!p.hasta || hoy <= p.hasta), fin = p.hasta && p.hasta < hoy;
+      ul.append(el('li', null, el('button', { onclick: () => openPlan(p) },
+        el('span', null, el('b', { text: `${p.comidas.length} ${p.comidas.length === 1 ? 'comida' : 'comidas'}: ${listaY(p.comidas)}` }), now ? el('span', { class: 'pill ok', style: 'margin-left:8px', text: 'En curso' }) : fin ? el('span', { class: 'tag', text: 'terminado' }) : null),
+        el('span', { class: 'pd', text: `Desde el ${fdia(p.desde)}` + (p.hasta ? ` hasta el ${fdia(p.hasta)}` : ', sin fecha de fin') }))));
+    }
+  }
+  let plan = null, plSel = [], plOpts = [];
+  function openPlan(p) {
+    plan = p || null;
+    $('#planTitle').textContent = p ? 'Editar periodo' : 'Nuevo periodo';
+    $('#plFrom').value = p ? p.desde : today(); $('#plTo').value = p && p.hasta ? p.hasta : '';
+    plSel = p ? [...p.comidas] : ['Comida', 'Cena'];
+    plOpts = [...COMIDAS]; for (const c of plSel) if (!plOpts.includes(c)) plOpts.push(c);
+    $('#plOther').value = ''; $('#plErr').textContent = ''; $('#plDelete').hidden = !p;
+    renderPlanSheet(); openSheet('#planSheet');
+  }
+  function renderPlanSheet() {
+    const box = $('#plChips'); box.replaceChildren();
+    for (const c of plOpts) box.append(el('button', { 'aria-pressed': String(plSel.includes(c)), onclick: () => {
+      plSel = plSel.includes(c) ? plSel.filter((x) => x !== c) : plAddSel(c);
+      renderPlanSheet(); } }, c));
+    const ol = $('#plOrder'); ol.replaceChildren(); $('#plOrderBox').hidden = plSel.length < 2;
+    plSel.forEach((c, i) => ol.append(el('li', null, el('span', { text: `${i + 1}. ${c}` }),
+      el('button', { class: 'del', 'aria-label': `Subir ${c}`, disabled: i === 0 ? '' : null, onclick: () => { plSel.splice(i - 1, 0, plSel.splice(i, 1)[0]); renderPlanSheet(); } }, '↑'),
+      el('button', { class: 'del', 'aria-label': `Bajar ${c}`, disabled: i === plSel.length - 1 ? '' : null, onclick: () => { plSel.splice(i + 1, 0, plSel.splice(i, 1)[0]); renderPlanSheet(); } }, '↓'))));
+    const n = plSel.length;
+    $('#plInfo').textContent = n ? `${n} ${n === 1 ? 'comida' : 'comidas'} al día · ≈${fmtN(data.goals.proteina / n)} g de proteína en cada una (objetivo de ${data.goals.proteina} g al día).` : 'Elige al menos una comida.';
+  }
+  function plAddSel(c) {
+    // las cuatro de siempre se colocan en su orden habitual; las demás, al final (se pueden mover con las flechas)
+    const out = [...plSel], k = COMIDAS.indexOf(c);
+    if (k < 0) { out.push(c); return out; }
+    let pos = out.length;
+    for (let i = 0; i < out.length; i++) { const j = COMIDAS.indexOf(out[i]); if (j > k) { pos = i; break; } }
+    out.splice(pos, 0, c); return out;
+  }
+  $('#newPlan').addEventListener('click', () => openPlan(null));
+  $('#plAdd').addEventListener('click', () => {
+    const t = $('#plOther').value.trim().replace(/\s+/g, ' '); if (!t) return;
+    const name = t.charAt(0).toUpperCase() + t.slice(1);
+    if (!plOpts.some((x) => norm(x) === norm(name))) plOpts.push(name);
+    const real = plOpts.find((x) => norm(x) === norm(name));
+    if (!plSel.includes(real)) plSel = plAddSel(real);
+    $('#plOther').value = ''; renderPlanSheet();
+  });
+  $('#plOther').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#plAdd').click(); });
+  $('#plSave').addEventListener('click', () => {
+    const desde = $('#plFrom').value, hasta = $('#plTo').value || null;
+    if (!desde) { $('#plErr').textContent = 'Pon la fecha de inicio.'; return; }
+    if (hasta && hasta < desde) { $('#plErr').textContent = 'La fecha final no puede ser anterior a la de inicio.'; return; }
+    if (!plSel.length) { $('#plErr').textContent = 'Elige al menos una comida.'; return; }
+    const body = { id: plan ? plan.id : `p-${Date.now().toString(36)}`, desde, hasta, comidas: [...plSel] };
+    data.planes = plan ? data.planes.map((x) => (x.id === plan.id ? body : x)) : [...(data.planes || []), body];
+    if (persist()) { closeSheet('#planSheet'); setStatus(`Periodo guardado: ${listaY(body.comidas)}`); renderAll(); }
+  });
+  $('#plDelete').addEventListener('click', () => {
+    if (!plan) return; const b = $('#plDelete');
+    if (b.dataset.confirm !== '1') { b.dataset.confirm = '1'; b.textContent = 'Toca otra vez para borrar'; setTimeout(() => { b.dataset.confirm = ''; b.textContent = 'Borrar'; }, 3000); return; }
+    b.dataset.confirm = ''; b.textContent = 'Borrar';
+    data.planes = data.planes.filter((x) => x.id !== plan.id);
+    if (persist()) { closeSheet('#planSheet'); setStatus('Periodo borrado'); renderAll(); }
+  });
+
+  const renderAll = () => { renderDay(); renderFoods(); renderWeights(); renderPlans(); renderHist(); };
 
   // ---------- pestañas y hojas ----------
   const TITULOS = { hoy: 'Diario de comidas', alimentos: 'Alimentos y recetas', peso: 'Peso y medidas', historial: 'Historial' };
@@ -739,7 +853,7 @@ table.hist td.r { white-space: nowrap; }
   document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => { b.closest('.sheet-bg').classList.remove('open'); stopScan(); updBack(); }));
   document.querySelectorAll('.sheet-bg').forEach((bg) => bg.addEventListener('click', (e) => { if (e.target === bg) { bg.classList.remove('open'); stopScan(); updBack(); } }));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('.sheet-bg.open').forEach((s) => s.classList.remove('open')); stopScan(); updBack(); } });
-  function fillMeals(sel, meal) { sel.replaceChildren(); const n = [...COMIDAS]; if (!n.includes(meal)) n.push(meal); for (const x of n) sel.append(el('option', { value: x, text: x })); sel.value = meal; }
+  function fillMeals(sel, meal) { sel.replaceChildren(); const n = mealsFor(state.day); if (!n.includes(meal)) n.push(meal); for (const x of n) sel.append(el('option', { value: x, text: x })); sel.value = meal; }
 
   // ---------- añadir ----------
   let pick = null;
@@ -1148,7 +1262,7 @@ table.hist td.r { white-space: nowrap; }
     e.stopImmediatePropagation();
     const obj = b._obj; b._obj = null; b.dataset.pending = ''; b.textContent = 'Restaurar una copia';
     for (const k of fotoKeys()) lsDel(k);
-    data = { foods: obj.data.foods, regs: obj.data.regs || {}, pesos: obj.data.pesos || {}, goals: { ...DEF_GOALS, ...(obj.data.goals || {}) }, perfil: { altura_cm: null, ...((obj.data.perfil && obj.data.perfil.altura_cm) ? obj.data.perfil : data.perfil) } };
+    data = { foods: obj.data.foods, regs: obj.data.regs || {}, pesos: obj.data.pesos || {}, goals: { ...DEF_GOALS, ...(obj.data.goals || {}) }, perfil: { altura_cm: null, ...((obj.data.perfil && obj.data.perfil.altura_cm) ? obj.data.perfil : data.perfil) }, planes: Array.isArray(obj.data.planes) ? obj.data.planes : (data.planes || []) };
     if (persist()) { for (const [id, v] of Object.entries(obj.fotos || {})) if (isFoto(v)) setFoto(id, v); setStatus('Copia restaurada'); renderAll(); }
   }, true);
 
