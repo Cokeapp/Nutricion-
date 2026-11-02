@@ -133,6 +133,9 @@ table.hist td.r { white-space: nowrap; }
 .off .btn.sec { background: var(--panel); border: 1px solid var(--line); }
 #offVideo { width: 100%; max-height: 240px; object-fit: cover; border-radius: 10px; background: #000; }
 #offMsg:empty { display: none; }
+.rsum { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: .95rem; }
+.rsum b { font-variant-numeric: tabular-nums; }
+.tag { display: inline-block; font-size: .7rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: var(--sage-soft); color: var(--slate); margin-left: 6px; vertical-align: 1px; }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--slate); font-weight: 700; text-decoration: underline; font-size: inherit; }
 .pill.bad { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .kpi { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -164,8 +167,8 @@ table.hist td.r { white-space: nowrap; }
 
   <section id="tab-alimentos" hidden>
     <div class="stack">
-      <div class="row"><h2 class="grow">Lista de alimentos</h2><button class="btn" id="newFood">+ Nuevo</button></div>
-      <p class="note">Valores por 100 g. Si un alimento se cuenta por piezas (un huevo, una rebanada), pon cuánto pesa una y podrás apuntarlo por unidades. Ajusta los valores con la etiqueta de tus productos.</p>
+      <div class="row" style="flex-wrap:nowrap"><h2 class="grow">Alimentos</h2><button class="btn sec" id="newRecipe">+ Receta</button><button class="btn" id="newFood">+ Nuevo</button></div>
+      <p class="note">Con <b>+ Receta</b> creas un plato completo (pizza casera, potaje…) a partir de sus ingredientes. Valores por 100 g. Si un alimento se cuenta por piezas (un huevo, una rebanada), pon cuánto pesa una y podrás apuntarlo por unidades. Ajusta los valores con la etiqueta de tus productos.</p>
       <input type="search" id="foodSearch" placeholder="Buscar alimento" aria-label="Buscar alimento">
       <div class="card" style="padding:0">
         <table class="hist" id="foodTable">
@@ -229,7 +232,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 2.4</p>
+      <p class="note" style="text-align:center">Versión 2.5</p>
     </div>
   </section>
 </div>
@@ -287,6 +290,38 @@ table.hist td.r { white-space: nowrap; }
     <label class="f" for="phMeal">Comida<select id="phMeal"></select></label>
     <button class="btn" id="phSave">Guardar la foto</button>
     <p class="note">La foto se guarda en pequeño junto a la comida. Después añade los alimentos con «+ Añadir».</p>
+  </div>
+</div>
+
+<!-- Receta -->
+<div class="sheet-bg" id="recSheet" role="dialog" aria-modal="true" aria-labelledby="recTitle">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="recTitle">Nueva receta</h2><button class="iconbtn" data-close aria-label="Cerrar">✕</button></div>
+    <label class="f" for="rName">Nombre del plato<input type="text" id="rName" maxlength="80" placeholder="Pizza casera, potaje de lentejas…"></label>
+    <div class="card stack">
+      <b>Ingredientes</b>
+      <ul class="items" id="rIngs"></ul>
+      <p class="note" id="rEmpty">Añade cada ingrediente con lo que echas. Usa el alimento en el mismo estado en que lo pesas: si pesas las lentejas secas, «lentejas secas», no «cocidas».</p>
+      <input type="search" id="rSearch" placeholder="Buscar ingrediente (lentejas, chorizo…)" aria-label="Buscar ingrediente">
+      <ul class="foodlist" id="rList" hidden></ul>
+      <div class="stack" id="rQty" hidden>
+        <div><b id="rPickName">—</b></div>
+        <div class="grid2">
+          <label class="f" for="rAmount">Cantidad<input type="text" id="rAmount" inputmode="decimal" autocomplete="off"></label>
+          <label class="f" for="rUnit">En<select id="rUnit"></select></label>
+        </div>
+        <button class="btn sec" id="rAddIng">Añadir ingrediente</button>
+      </div>
+      <p class="note">¿Falta un ingrediente? <button class="linkbtn" id="rNewFood">Créalo</button> (a mano o desde Open Food Facts) y vuelves aquí.</p>
+    </div>
+    <div class="grid2">
+      <label class="f" for="rRac">Raciones que salen<input type="text" id="rRac" inputmode="decimal" autocomplete="off" placeholder="4"></label>
+      <label class="f" for="rPeso">Peso del plato hecho (g)<input type="text" id="rPeso" inputmode="decimal" autocomplete="off" placeholder="opcional"></label>
+    </div>
+    <p class="note">Si lleva agua o se hace al horno (potajes, arroces, pizza), pesa el plato ya hecho: la olla llena menos lo que pesa vacía. Así la ración en gramos sale exacta. Si lo dejas vacío, se usa la suma de los ingredientes.</p>
+    <div class="card" id="rSum"></div>
+    <div class="row"><button class="btn grow" id="rSave">Guardar receta</button><button class="btn danger" id="rDelete">Borrar</button></div>
+    <p class="status bad" id="rErr"></p>
   </div>
 </div>
 
@@ -483,7 +518,7 @@ table.hist td.r { white-space: nowrap; }
     if (!list.length) { tb.append(el('tr', null, el('td', { colspan: '3', class: 'empty', text: 'No hay alimentos con ese nombre.' }))); return; }
     for (const f of list) {
       const tr = el('tr', { style: 'cursor:pointer', tabindex: '0', onclick: () => openFood(f) },
-        el('td', { style: 'padding-left:12px' }, el('div', { text: f.nombre }), f.unidad && f.gUnidad ? el('div', { class: 'note', text: `1 ${f.unidad} ≈ ${fmt1(f.gUnidad)} g` }) : null),
+        el('td', { style: 'padding-left:12px' }, el('div', null, f.nombre, f.receta ? el('span', { class: 'tag', text: 'receta' }) : null), f.unidad && f.gUnidad ? el('div', { class: 'note', text: `1 ${f.unidad} ≈ ${fmt1(f.gUnidad)} g` }) : null),
         el('td', { class: 'r num', text: fmt1(f.kcal100) }), el('td', { class: 'r num', style: 'padding-right:12px', text: `${fmt1(f.prot100)} g` }));
       tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') openFood(f); });
       tb.append(tr);
@@ -687,13 +722,14 @@ table.hist td.r { white-space: nowrap; }
   // ---------- alimentos ----------
   let editing = null;
   function openFood(f) {
+    if (f && f.receta) { openRecipe(f); return; }
     editing = f || null;
     $('#foodTitle').textContent = f ? 'Editar alimento' : 'Nuevo alimento';
     $('#fName').value = f ? f.nombre : ''; $('#fKcal').value = f ? dec(f.kcal100) : ''; $('#fProt').value = f ? dec(f.prot100) : '';
     $('#fUnit').value = f && f.unidad ? f.unidad : ''; $('#fUnitG').value = f && f.gUnidad ? dec(f.gUnidad) : ''; $('#fNote').value = f && f.nota ? f.nota : '';
     $('#fDelete').hidden = !f; $('#fErr').textContent = '';
     $('#offBox').hidden = !!f; $('#offMsg').textContent = ''; $('#offList').hidden = true; $('#offList').replaceChildren(); $('#offCode').value = ''; $('#offQ').value = '';
-    if (!f) backToAdd = null;
+    if (!f) { backToAdd = null; backToRecipe = false; }
     openSheet('#foodSheet');
   }
   $('#newFood').addEventListener('click', () => openFood(null));
@@ -705,18 +741,131 @@ table.hist td.r { white-space: nowrap; }
     const body = { id: editing ? editing.id : `${slug(nombre).slice(0, 60)}-${Date.now().toString(36)}`, nombre, kcal100: r1(k), prot100: r1(p),
       unidad: unidad || null, gUnidad: unidad ? r1(gu) : null, nota: $('#fNote').value.trim() || null };
     data.foods = editing ? data.foods.map((x) => (x.id === editing.id ? body : x)) : [...data.foods, body];
-    // Al corregir un alimento, se recalculan las comidas ya apuntadas con él
-    let n = 0;
-    if (editing) for (const r of Object.values(data.regs)) for (const it of (r.items || [])) {
-      if (it.alimentoId !== body.id || !(Number(it.gramos) > 0)) continue;
-      const k2 = r1(it.gramos * body.kcal100 / 100), p2 = r1(it.gramos * body.prot100 / 100);
-      if (k2 !== it.kcal || p2 !== it.prot || it.alimento !== body.nombre) { it.kcal = k2; it.prot = p2; it.alimento = body.nombre; n++; }
-    }
+    // Al corregir un alimento, se recalculan las recetas que lo llevan y las comidas ya apuntadas
+    let n = 0, nr = 0;
+    if (editing) { n = recalcItems(body); const rr = recalcRecipesUsing(body); n += rr.n; nr = rr.recetas; }
     if (persist()) {
-      closeSheet('#foodSheet'); stopScan(); setStatus(`Guardado: ${nombre}` + (n ? ` · recalculado en ${n} ${n === 1 ? 'comida apuntada' : 'comidas apuntadas'}` : '')); renderAll();
+      closeSheet('#foodSheet'); stopScan(); setStatus(`Guardado: ${nombre}` + recalcMsg(n, nr)); renderAll();
       if (!editing && backToAdd) { const meal = backToAdd; backToAdd = null; openAdd(meal); choose(body); }
+      if (!editing && backToRecipe) { backToRecipe = false; renderRec(); recPick(body); }
     }
   });
+  function recalcItems(food) {
+    let n = 0;
+    for (const r of Object.values(data.regs)) for (const it of (r.items || [])) {
+      if (it.alimentoId !== food.id || !(Number(it.gramos) > 0)) continue;
+      const k2 = r1(it.gramos * food.kcal100 / 100), p2 = r1(it.gramos * food.prot100 / 100);
+      if (k2 !== it.kcal || p2 !== it.prot || it.alimento !== food.nombre) { it.kcal = k2; it.prot = p2; it.alimento = food.nombre; n++; }
+    }
+    return n;
+  }
+  const recalcMsg = (n, nr) => (nr ? ` · recalculada${nr === 1 ? '' : 's'} ${nr} receta${nr === 1 ? '' : 's'}` : '') + (n ? ` · recalculado en ${n} ${n === 1 ? 'comida apuntada' : 'comidas apuntadas'}` : '');
+
+  // ---------- recetas ----------
+  let rec = null, rPick = null, backToRecipe = false;
+  const ingFrom = (f, g, txt) => ({ alimentoId: f.id, alimento: f.nombre, gramos: r1(g), kcal: r1(g * f.kcal100 / 100), prot: r1(g * f.prot100 / 100), cantidadTexto: txt });
+  function recCalc(ings, raciones, pesoTotal) {
+    let k = 0, p = 0, g = 0;
+    for (const i of ings) { k += Number(i.kcal) || 0; p += Number(i.prot) || 0; g += Number(i.gramos) || 0; }
+    const peso = pesoTotal > 0 ? pesoTotal : g, rac = raciones > 0 ? raciones : 1;
+    return { k, p, g, peso, rac, k100: peso > 0 ? k / peso * 100 : 0, p100: peso > 0 ? p / peso * 100 : 0, rk: k / rac, rp: p / rac, rg: peso / rac };
+  }
+  function applyRecipe(f) {
+    const c = recCalc(f.receta.ings, f.receta.raciones, f.receta.pesoTotal);
+    f.kcal100 = r2(c.k100); f.prot100 = r2(c.p100); f.unidad = 'ración'; f.gUnidad = r1(c.rg);
+    f.nota = `Receta · ${fmtN(c.rac)} ${c.rac === 1 ? 'ración' : 'raciones'}`;
+  }
+  function recalcRecipesUsing(food) {
+    let n = 0, recetas = 0;
+    for (const f of data.foods) {
+      if (!f.receta || !(f.receta.ings || []).some((i) => i.alimentoId === food.id)) continue;
+      f.receta.ings = f.receta.ings.map((i) => (i.alimentoId === food.id ? { ...ingFrom(food, i.gramos, i.cantidadTexto) } : i));
+      applyRecipe(f); recetas++; n += recalcItems(f);
+    }
+    return { n, recetas };
+  }
+  function openRecipe(f) {
+    rec = f ? { id: f.id, ings: JSON.parse(JSON.stringify(f.receta.ings || [])) } : { id: null, ings: [] };
+    $('#recTitle').textContent = f ? 'Editar receta' : 'Nueva receta';
+    $('#rName').value = f ? f.nombre : ''; $('#rRac').value = f ? dec(f.receta.raciones) : ''; $('#rPeso').value = f && f.receta.pesoTotal ? dec(f.receta.pesoTotal) : '';
+    $('#rDelete').hidden = !f; $('#rErr').textContent = ''; $('#rSearch').value = ''; rPick = null; $('#rQty').hidden = true;
+    renderRec(); openSheet('#recSheet');
+  }
+  function renderRec() {
+    const ul = $('#rIngs'); ul.replaceChildren();
+    rec.ings.forEach((i, j) => ul.append(el('li', null,
+      el('div', null, el('div', { text: i.alimento }), el('div', { class: 'q', text: i.cantidadTexto || `${fmtN(i.gramos)} g` })),
+      el('div', { class: 'k num', text: `${fmtN(i.kcal)} kcal · ${fmtN(i.prot)} g` }),
+      el('button', { class: 'del', 'aria-label': `Quitar ${i.alimento}`, onclick: () => { rec.ings.splice(j, 1); renderRec(); } }, '✕'))));
+    $('#rEmpty').hidden = rec.ings.length > 0;
+    renderRecList(); renderRecSum();
+  }
+  function renderRecList() {
+    const q = norm($('#rSearch').value), ul = $('#rList'); ul.replaceChildren();
+    if (!q) { ul.hidden = true; return; }
+    const list = foodsSorted().filter((f) => !f.receta && norm(f.nombre).includes(q))
+      .sort((a, b) => (norm(a.nombre).startsWith(q) ? 0 : 1) - (norm(b.nombre).startsWith(q) ? 0 : 1)).slice(0, 8);
+    if (!list.length) ul.append(el('li', { class: 'empty', text: 'No está en tu lista. Pulsa «Créalo» más abajo.' }));
+    for (const f of list) ul.append(el('li', null, el('button', { onclick: () => recPick(f) },
+      el('span', { text: f.nombre }), el('span', { class: 'meta', text: `${fmtN(f.kcal100)} kcal · ${fmtN(f.prot100)} g` }))));
+    ul.hidden = false;
+  }
+  function recPick(f) {
+    rPick = f; $('#rPickName').textContent = f.nombre;
+    const u = $('#rUnit'); u.replaceChildren(el('option', { value: 'g', text: 'gramos' }));
+    if (f.unidad && f.gUnidad) u.append(el('option', { value: 'u', text: `${f.unidad} (${fmt1(f.gUnidad)} g)` }));
+    u.value = f.unidad && f.gUnidad ? 'u' : 'g'; $('#rAmount').value = u.value === 'u' ? 1 : 100;
+    $('#rList').hidden = true; $('#rQty').hidden = false; $('#rErr').textContent = '';
+    $('#rQty').scrollIntoView({ block: 'nearest' }); $('#rAmount').focus(); $('#rAmount').select();
+  }
+  function renderRecSum() {
+    const box = $('#rSum'); box.replaceChildren();
+    if (!rec.ings.length) { box.append(el('p', { class: 'note', text: 'Aquí verás el total, lo que tiene cada ración y los valores por 100 g.' })); return; }
+    const rac = num($('#rRac').value), peso = num($('#rPeso').value), c = recCalc(rec.ings, rac, peso);
+    box.append(el('div', { class: 'rsum' },
+      el('span', { class: 'muted', text: 'Total' }), el('span', null, el('b', { text: `${fmtN(c.k)} kcal` }), ` · ${fmtN(c.p)} g proteína · ${fmtN(c.peso)} g`),
+      el('span', { class: 'muted', text: rac > 0 ? `1 ración (de ${fmtN(rac)})` : '1 ración' }), rac > 0 ? el('span', null, el('b', { text: `${fmtN(c.rk)} kcal` }), ` · ${fmtN(c.rp)} g proteína · ≈${fmtN(c.rg)} g`) : el('span', { class: 'muted', text: 'pon cuántas raciones salen' }),
+      el('span', { class: 'muted', text: 'Por 100 g' }), el('span', null, `${fmtN(c.k100)} kcal · ${fmtN(c.p100)} g proteína`)));
+  }
+  $('#newRecipe').addEventListener('click', () => openRecipe(null));
+  $('#rSearch').addEventListener('input', () => { rPick = null; $('#rQty').hidden = true; renderRecList(); });
+  $('#rRac').addEventListener('input', renderRecSum);
+  $('#rPeso').addEventListener('input', renderRecSum);
+  $('#rUnit').addEventListener('change', () => { if (!rPick) return; $('#rAmount').value = $('#rUnit').value === 'u' ? 1 : 100; });
+  $('#rAddIng').addEventListener('click', () => {
+    if (!rPick) return;
+    const a = num($('#rAmount').value), byU = $('#rUnit').value === 'u', g = byU ? a * Number(rPick.gUnidad) : a;
+    if (!(g > 0)) { $('#rErr').textContent = 'Pon la cantidad del ingrediente.'; return; }
+    const plural = a !== 1 && !/s$/.test(rPick.unidad || '') ? 's' : '';
+    rec.ings.push(ingFrom(rPick, g, byU ? `${fmt1(a)} ${rPick.unidad}${plural} · ${r0(g)} g` : `${fmtN(g)} g`));
+    rPick = null; $('#rQty').hidden = true; $('#rSearch').value = ''; $('#rErr').textContent = ''; renderRec();
+  });
+  $('#rNewFood').addEventListener('click', () => { const q = $('#rSearch').value.trim(); openFood(null); backToRecipe = true; $('#offQ').value = q; $('#fName').value = q; });
+  $('#rSave').addEventListener('click', () => {
+    const nombre = $('#rName').value.trim(), rac = num($('#rRac').value), peso = num($('#rPeso').value);
+    if (!nombre) { $('#rErr').textContent = 'Pon el nombre del plato.'; return; }
+    if (!rec.ings.length) { $('#rErr').textContent = 'Añade al menos un ingrediente.'; return; }
+    if (!(rac > 0)) { $('#rErr').textContent = 'Pon cuántas raciones salen.'; return; }
+    if ($('#rPeso').value.trim() && !(peso > 0)) { $('#rErr').textContent = 'Revisa el peso del plato hecho, o déjalo vacío.'; return; }
+    // usar los valores actuales de cada ingrediente
+    const ings = rec.ings.map((i) => { const f = data.foods.find((x) => x.id === i.alimentoId); return f ? ingFrom(f, i.gramos, i.cantidadTexto) : i; });
+    const body = { id: rec.id || `${slug(nombre).slice(0, 60)}-${Date.now().toString(36)}`, nombre, kcal100: 0, prot100: 0, unidad: 'ración', gUnidad: null, nota: null,
+      receta: { ings, raciones: r1(rac), pesoTotal: peso > 0 ? r1(peso) : null } };
+    applyRecipe(body);
+    const old = rec.id ? data.foods.find((x) => x.id === rec.id) : null;
+    data.foods = old ? data.foods.map((x) => (x.id === rec.id ? body : x)) : [...data.foods, body];
+    const n = old ? recalcItems(body) : 0;
+    if (persist()) { closeSheet('#recSheet'); setStatus(`Receta guardada: ${nombre} (1 ración ≈ ${fmtN(body.gUnidad)} g, ${fmtN(body.kcal100 * body.gUnidad / 100)} kcal)` + recalcMsg(n, 0)); renderAll(); }
+  });
+  $('#rDelete').addEventListener('click', () => {
+    if (!rec || !rec.id) return; const b = $('#rDelete');
+    if (b.dataset.confirm !== '1') { b.dataset.confirm = '1'; b.textContent = 'Toca otra vez para borrar'; setTimeout(() => { b.dataset.confirm = ''; b.textContent = 'Borrar'; }, 3000); return; }
+    b.dataset.confirm = ''; b.textContent = 'Borrar';
+    const f = data.foods.find((x) => x.id === rec.id);
+    data.foods = data.foods.filter((x) => x.id !== rec.id);
+    if (persist()) { closeSheet('#recSheet'); setStatus(`Borrada: ${f ? f.nombre : 'receta'}`); renderAll(); }
+  });
+
   $('#fDelete').addEventListener('click', () => {
     if (!editing) return; const b = $('#fDelete');
     if (b.dataset.confirm !== '1') { b.dataset.confirm = '1'; b.textContent = 'Toca otra vez para borrar'; setTimeout(() => { b.dataset.confirm = ''; b.textContent = 'Borrar'; }, 3000); return; }

@@ -1,4 +1,4 @@
-const CACHE = "comidas-v6";
+const CACHE = "comidas-v7";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 // Al instalar, pide los archivos al servidor saltándose la caché del navegador (así nunca guarda una versión vieja).
 self.addEventListener("install", e => {
