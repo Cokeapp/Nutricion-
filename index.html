@@ -188,6 +188,7 @@ table.hist td.r { white-space: nowrap; }
 .items li.tap > div:first-child { padding-right: 4px; }
 .del.edit svg { width: 18px; height: 18px; vertical-align: -3px; }
 .extra.tap { cursor: pointer; }
+.btn .bi { width: 20px; height: 20px; vertical-align: -4px; margin-right: 8px; }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--slate); font-weight: 700; text-decoration: underline; font-size: inherit; }
 .pill.bad { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .kpi { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -291,7 +292,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 3.0</p>
+      <p class="note" style="text-align:center">Versión 3.1</p>
     </div>
   </section>
 </div>
@@ -393,6 +394,14 @@ table.hist td.r { white-space: nowrap; }
 
 <!-- Foto del plato -->
 <input type="file" id="photoInput" accept="image/*" hidden>
+<input type="file" id="photoCam" accept="image/*" capture="environment" hidden>
+<div class="sheet-bg" id="photoPick" role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="pickTitle">Foto del plato</h2><button class="iconbtn" data-close aria-label="Cerrar">✕</button></div>
+    <button class="btn" id="pickCam"><svg class="bi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Hacer foto con la cámara</button>
+    <button class="btn sec" id="pickGal"><svg class="bi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 16l-5-5-9 8.5"/></svg>Elegir de la galería</button>
+  </div>
+</div>
 <div class="sheet-bg" id="photoSheet" role="dialog" aria-modal="true" aria-labelledby="photoTitle">
   <div class="sheet">
     <div class="sheet-head"><h2 id="photoTitle">Foto del plato</h2><button class="iconbtn" data-close aria-label="Cerrar">✕</button></div>
@@ -1034,7 +1043,10 @@ table.hist td.r { white-space: nowrap; }
 
   // ---------- foto ----------
   let photo = null;
-  function pickPhoto(meal) { photo = { meal }; const inp = $('#photoInput'); inp.value = ''; inp.click(); }
+  function pickPhoto(meal) { photo = { meal }; openSheet('#photoPick'); }
+  const openPicker = (sel) => { closeSheet('#photoPick'); const inp = $(sel); inp.value = ''; inp.click(); };
+  $('#pickCam').addEventListener('click', () => openPicker('#photoCam'));
+  $('#pickGal').addEventListener('click', () => openPicker('#photoInput'));
   async function makeThumb(file, max, q) {
     let src;
     try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
@@ -1044,12 +1056,14 @@ table.hist td.r { white-space: nowrap; }
     c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
     return c.toDataURL('image/jpeg', q);
   }
-  $('#photoInput').addEventListener('change', async (e) => {
+  const onPhoto = async (e) => {
     const file = e.target.files && e.target.files[0]; if (!file || !photo) return;
     try { photo.thumb = await makeThumb(file, 320, 0.6); } catch { setStatus('No se ha podido leer esa imagen. Prueba con otra.', true); return; }
     $('#phPrev').src = photo.thumb; fillMeals($('#phMeal'), photo.meal);
     $('#photoTitle').textContent = `Foto del plato · ${nice(state.day)}`; openSheet('#photoSheet');
-  });
+  };
+  $('#photoInput').addEventListener('change', onPhoto);
+  $('#photoCam').addEventListener('change', onPhoto);
   $('#phSave').addEventListener('click', () => {
     if (!photo || !photo.thumb) return;
     const meal = $('#phMeal').value, id = regId(state.day, meal);
