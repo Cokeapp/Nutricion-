@@ -183,6 +183,11 @@ table.hist td.r { white-space: nowrap; }
 .plist:empty { display: none; }
 .plist button { width: 100%; text-align: left; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; }
 .plist .pd { font-size: .85rem; color: var(--muted); }
+.items li.tap { grid-template-columns: 1fr auto auto auto; gap: 6px; }
+.items li.tap > div { cursor: pointer; }
+.items li.tap > div:first-child { padding-right: 4px; }
+.del.edit svg { width: 18px; height: 18px; vertical-align: -3px; }
+.extra.tap { cursor: pointer; }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--slate); font-weight: 700; text-decoration: underline; font-size: inherit; }
 .pill.bad { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .kpi { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -286,7 +291,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 2.9</p>
+      <p class="note" style="text-align:center">Versión 3.0</p>
     </div>
   </section>
 </div>
@@ -360,6 +365,29 @@ table.hist td.r { white-space: nowrap; }
       </div>
       <button class="btn" id="frConfirm">Añadir a la comida</button>
     </div>
+  </div>
+</div>
+
+<!-- Cambiar un alimento apuntado -->
+<div class="sheet-bg" id="editSheet" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="edTitle">Cambiar</h2><button class="iconbtn" data-close aria-label="Cerrar">✕</button></div>
+    <div><b id="edName">—</b> <span class="muted small" id="edMeta"></span></div>
+    <div class="grid2" id="edQty">
+      <label class="f" for="edAmount">Cantidad<input type="text" id="edAmount" inputmode="decimal" autocomplete="off"></label>
+      <label class="f" for="edUnit">En<select id="edUnit"></select></label>
+    </div>
+    <div class="stack" id="edFree">
+      <label class="f" for="edText">Qué has comido<input type="text" id="edText" maxlength="160"></label>
+      <div class="grid2">
+        <label class="f" for="edK">Calorías (kcal)<input type="text" id="edK" inputmode="decimal" autocomplete="off"></label>
+        <label class="f" for="edP">Proteína (g)<input type="text" id="edP" inputmode="decimal" autocomplete="off"></label>
+      </div>
+    </div>
+    <div class="preview" id="edPrev"><span><b id="edPK">0</b> kcal</span><span><b id="edPP">0</b> g proteína</span></div>
+    <label class="f" for="edMeal">Comida<select id="edMeal"></select></label>
+    <div class="row"><button class="btn grow" id="edSave">Guardar cambios</button><button class="btn danger" id="edDel">Quitar</button></div>
+    <p class="status bad" id="edErr"></p>
   </div>
 </div>
 
@@ -585,15 +613,18 @@ table.hist td.r { white-space: nowrap; }
         body.append(img, el('button', { class: 'photo-del', onclick: () => delFoto(id) }, 'Quitar la foto'));
       }
       if (r && r.extra && (r.extra.texto || r.extra.kcal)) {
-        body.append(el('div', { class: 'extra' }, el('b', { text: 'Estimado por Claude: ' }), `${r.extra.texto || ''} `,
+        body.append(el('div', { class: 'extra tap', role: 'button', tabindex: '0', 'aria-label': 'Cambiar lo estimado por Claude', onclick: () => openEdit(id, 'extra') }, el('b', { text: 'Estimado por Claude: ' }), `${r.extra.texto || ''} `,
           el('span', { class: 'muted', text: `(${fmtN(r.extra.kcal)} kcal · ${fmtN(r.extra.prot)} g)` })));
       }
       if (r && (r.items || []).length) {
         const ul = el('ul', { class: 'items' });
-        r.items.forEach((it, i) => ul.append(el('li', null,
-          el('div', null, el('div', { text: it.alimento }), el('div', { class: 'q', text: it.cantidadTexto || (it.gramos ? `${r0(it.gramos)} g` : '') })),
-          el('div', { class: 'k num', text: `${fmtN(it.kcal)} kcal · ${fmtN(it.prot)} g` }),
-          el('button', { class: 'del', 'aria-label': `Quitar ${it.alimento}`, onclick: () => removeItem(id, i) }, '✕'))));
+        r.items.forEach((it, i) => {
+          const ed = el('button', { class: 'del edit', 'aria-label': `Cambiar ${it.alimento}`, onclick: () => openEdit(id, i) }); ed.innerHTML = PEN;
+          ul.append(el('li', { class: 'tap' },
+            el('div', { onclick: () => openEdit(id, i) }, el('div', { text: it.alimento }), el('div', { class: 'q', text: it.cantidadTexto || (it.gramos ? `${r0(it.gramos)} g` : '') })),
+            el('div', { class: 'k num', onclick: () => openEdit(id, i), text: `${fmtN(it.kcal)} kcal · ${fmtN(it.prot)} g` }),
+            ed, el('button', { class: 'del', 'aria-label': `Quitar ${it.alimento}`, onclick: () => removeItem(id, i) }, '✕')));
+        });
         body.append(ul);
       }
       const phB = el('button', { class: 'photobtn', 'aria-label': `Foto del plato: ${name.toLowerCase()}`, onclick: () => pickPhoto(name) });
@@ -603,6 +634,7 @@ table.hist td.r { white-space: nowrap; }
     }
     if (typeof updBack === 'function') updBack();
   }
+  const PEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg>';
   function removeItem(id, i) {
     const r = data.regs[id]; if (!r) return;
     r.items = (r.items || []).filter((_, j) => j !== i);
@@ -912,6 +944,92 @@ table.hist td.r { white-space: nowrap; }
     const meal = $('#addMeal').value;
     const item = { alimento: t, alimentoId: null, gramos: null, kcal: r1(k), prot: r1(p), cantidadTexto: 'a mano' };
     if (upsertReg(state.day, meal, (r) => { r.items = [...(r.items || []), item]; })) { closeSheet('#addSheet'); openMeal(meal); setStatus(`Añadido: ${t}`); renderAll(); }
+  });
+
+  // ---------- cambiar un alimento ya apuntado ----------
+  let edit = null;
+  function openEdit(id, idx) {
+    const r = data.regs[id]; if (!r) return;
+    const isExtra = idx === 'extra', it = isExtra ? r.extra : (r.items || [])[idx]; if (!it) return;
+    const food = !isExtra && it.alimentoId ? data.foods.find((f) => f.id === it.alimentoId) : null;
+    const g = Number(it.gramos) || 0;
+    const mode = !isExtra && g > 0 ? 'qty' : 'free';
+    edit = { id, idx, isExtra, mode, comida: r.comida, base: null };
+    $('#edTitle').textContent = mode === 'qty' ? 'Cambiar cantidad' : 'Cambiar';
+    $('#edName').textContent = isExtra ? 'Estimado por Claude' : it.alimento;
+    $('#edMeta').textContent = mode === 'qty' ? `· ${it.cantidadTexto || fmtN(g) + ' g'}` : '';
+    $('#edQty').hidden = mode !== 'qty'; $('#edFree').hidden = mode !== 'free'; $('#edErr').textContent = '';
+    if (mode === 'qty') {
+      // valores por gramo: los del alimento de la lista o, si ya no existe, los de lo apuntado
+      edit.base = food ? { nombre: food.nombre, k: food.kcal100 / 100, p: food.prot100 / 100, unidad: food.unidad, gU: Number(food.gUnidad) || 0 }
+                       : { nombre: it.alimento, k: (Number(it.kcal) || 0) / g, p: (Number(it.prot) || 0) / g, unidad: null, gU: 0 };
+      const u = $('#edUnit'); u.replaceChildren(el('option', { value: 'g', text: 'gramos' }));
+      const b = edit.base;
+      if (b.unidad && b.gU) u.append(el('option', { value: 'u', text: `${b.unidad} (${fmt1(b.gU)} g)` }));
+      const byU = b.unidad && b.gU && / · /.test(it.cantidadTexto || '');
+      u.value = byU ? 'u' : 'g';
+      $('#edAmount').value = byU ? dec(r2(g / b.gU)) : dec(r1(g));
+    } else {
+      $('#edText').value = isExtra ? (it.texto || '') : (it.alimento || '');
+      $('#edK').value = dec(r1(it.kcal)); $('#edP').value = dec(r1(it.prot));
+    }
+    fillMeals($('#edMeal'), r.comida);
+    edPreview(); openSheet('#editSheet');
+    if (mode === 'qty') { $('#edAmount').focus(); $('#edAmount').select(); }
+  }
+  const edGrams = () => { const a = num($('#edAmount').value); return $('#edUnit').value === 'u' ? a * edit.base.gU : a; };
+  function edPreview() {
+    if (!edit) return;
+    let k, p, ok;
+    if (edit.mode === 'qty') { const g = edGrams(); ok = g > 0; k = ok ? g * edit.base.k : 0; p = ok ? g * edit.base.p : 0; }
+    else { k = num($('#edK').value); p = num($('#edP').value); ok = k >= 0 && p >= 0; }
+    $('#edPK').textContent = ok ? fmtN(k) : '0'; $('#edPP').textContent = ok ? fmtN(p) : '0';
+    $('#edSave').disabled = !ok;
+  }
+  ['#edAmount', '#edK', '#edP'].forEach((x) => $(x).addEventListener('input', edPreview));
+  $('#edUnit').addEventListener('change', () => {
+    if (!edit || edit.mode !== 'qty') return;
+    const a = num($('#edAmount').value), toU = $('#edUnit').value === 'u';
+    const g = toU ? a : a * edit.base.gU; // gramos que había antes del cambio de unidad
+    $('#edAmount').value = toU ? dec(r2(g / edit.base.gU)) : dec(r1(g)); edPreview();
+  });
+  function cleanReg(id) { const r = data.regs[id]; if (r && !(r.items || []).length && !r.extra && !getFoto(id)) delete data.regs[id]; }
+  $('#edSave').addEventListener('click', () => {
+    if (!edit) return;
+    const src = data.regs[edit.id]; if (!src) return;
+    const meal = $('#edMeal').value, old = edit.isExtra ? src.extra : src.items[edit.idx];
+    let item;
+    if (edit.mode === 'qty') {
+      const g = edGrams(); if (!(g > 0)) { $('#edErr').textContent = 'Pon la cantidad.'; return; }
+      const a = num($('#edAmount').value), byU = $('#edUnit').value === 'u', b = edit.base;
+      const plural = a !== 1 && !/s$/.test(b.unidad || '') ? 's' : '';
+      item = { ...old, alimento: b.nombre, gramos: r1(g), kcal: r1(g * b.k), prot: r1(g * b.p),
+        cantidadTexto: byU ? `${fmt1(a)} ${b.unidad}${plural} · ${r0(g)} g` : `${fmtN(g)} g` };
+    } else {
+      const t = $('#edText').value.trim(), k = num($('#edK').value), p = num($('#edP').value);
+      if (!t) { $('#edErr').textContent = 'Escribe qué has comido.'; return; }
+      if (!(k >= 0) || !(p >= 0)) { $('#edErr').textContent = 'Pon las calorías y la proteína.'; return; }
+      item = edit.isExtra ? { texto: t, kcal: r1(k), prot: r1(p) } : { ...old, alimento: t, kcal: r1(k), prot: r1(p) };
+    }
+    if (meal === edit.comida) {
+      if (edit.isExtra) src.extra = item; else src.items[edit.idx] = item;
+      src.actualizado = new Date().toISOString();
+      if (!persist()) return;
+    } else {
+      // pasarlo a otra comida del mismo día
+      if (edit.isExtra) src.extra = null; else src.items = src.items.filter((_, j) => j !== edit.idx);
+      const moved = edit.isExtra ? { alimento: `Estimado por Claude: ${item.texto}`, alimentoId: null, gramos: null, kcal: item.kcal, prot: item.prot, cantidadTexto: 'a mano' } : item;
+      cleanReg(edit.id);
+      if (!upsertReg(state.day, meal, (r) => { r.items = [...(r.items || []), moved]; })) return;
+    }
+    closeSheet('#editSheet'); openMeal(meal);
+    setStatus(meal === edit.comida ? `Cambiado: ${edit.isExtra ? 'estimado por Claude' : item.alimento} (${fmtN(item.kcal)} kcal)` : `Pasado a ${meal.toLowerCase()}`);
+    edit = null; renderAll();
+  });
+  $('#edDel').addEventListener('click', () => {
+    if (!edit) return; const src = data.regs[edit.id]; if (!src) return;
+    if (edit.isExtra) src.extra = null; else src.items = src.items.filter((_, j) => j !== edit.idx);
+    cleanReg(edit.id); persist(); closeSheet('#editSheet'); openMeal(edit.comida); setStatus('Quitado'); edit = null; renderAll();
   });
 
   // ---------- foto ----------
