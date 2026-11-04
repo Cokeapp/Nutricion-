@@ -147,7 +147,7 @@ input[type=text], input[type=number], input[type=date], input[type=search], sele
 .ph-prev { width: 100%; max-height: 260px; object-fit: contain; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
 
 nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); display: flex; justify-content: center; z-index: 10; padding-bottom: env(safe-area-inset-bottom); }
-nav.tabs .in { max-width: 560px; width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); }
+nav.tabs .in { max-width: 560px; width: 100%; display: grid; grid-template-columns: repeat(5, 1fr); }
 nav.tabs button { background: transparent; border: 0; padding: 12px 4px 14px; font-size: .85rem; font-weight: 700; color: var(--muted); border-top: 3px solid transparent; }
 nav.tabs button[aria-selected=true] { color: var(--slate); border-top-color: var(--sage); }
 [hidden] { display: none !important; }
@@ -189,6 +189,15 @@ table.hist td.r { white-space: nowrap; }
 .del.edit svg { width: 18px; height: 18px; vertical-align: -3px; }
 .extra.tap { cursor: pointer; }
 .btn .bi { width: 20px; height: 20px; vertical-align: -4px; margin-right: 8px; }
+.rng { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+.rng button { border: 0; background: transparent; padding: 10px 4px; font-weight: 700; color: var(--muted); }
+.rng button[aria-pressed=true] { background: var(--head-bg); color: var(--head-ink); }
+.ghead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.gleg { font-size: .75rem; color: var(--muted); white-space: nowrap; }
+.gleg i.ln { display: inline-block; width: 18px; border-top: 2px dashed var(--ink); vertical-align: 3px; margin-right: 5px; opacity: .7; }
+.kpi-main { border: 2px solid var(--head-bg); }
+.gstat { margin: 0; font-size: .9rem; color: var(--muted); }
+.gstat b { color: var(--ink); }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--slate); font-weight: 700; text-decoration: underline; font-size: inherit; }
 .pill.bad { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .kpi { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -265,6 +274,7 @@ table.hist td.r { white-space: nowrap; }
           <label class="f" for="gKcal">Calorías (kcal)<input type="text" id="gKcal" inputmode="decimal" autocomplete="off"></label>
           <label class="f" for="gProt">Proteína (g)<input type="text" id="gProt" inputmode="decimal" autocomplete="off"></label>
         </div>
+        <label class="f" for="gPeso">Peso objetivo (kg, opcional)<input type="text" id="gPeso" inputmode="decimal" autocomplete="off" placeholder="Para la gráfica de peso"></label>
         <button class="btn sec" id="saveGoals">Guardar objetivos</button>
       </div>
       <div class="card stack">
@@ -273,6 +283,19 @@ table.hist td.r { white-space: nowrap; }
         <ul class="plist" id="planList"></ul>
         <button class="btn sec" id="newPlan">+ Nuevo periodo</button>
       </div>
+    </div>
+  </section>
+
+  <section id="tab-graficas" hidden>
+    <div class="stack">
+      <div class="rng" role="group" aria-label="Periodo de las gráficas">
+        <button data-r="7" aria-pressed="true">7 días</button><button data-r="30" aria-pressed="false">30 días</button><button data-r="90" aria-pressed="false">90 días</button><button data-r="0" aria-pressed="false">Todo</button>
+      </div>
+      <div class="card stack kpi-main"><div class="ghead"><h2>Cintura / altura <span class="tag">KPI principal</span></h2><span class="gleg"><i class="ln"></i>0,50</span></div><p class="gstat" id="gsIca"></p><div class="chart" id="gcIca"></div></div>
+      <div class="card stack"><div class="ghead"><h2>Peso</h2><span class="gleg"><i class="ln"></i>objetivo</span></div><p class="gstat" id="gsPeso"></p><div class="chart" id="gcPeso"></div></div>
+      <div class="card stack"><div class="ghead"><h2>Calorías por día</h2><span class="gleg"><i class="ln"></i>objetivo</span></div><p class="gstat" id="gsKcal"></p><div class="chart" id="gcKcal"></div></div>
+      <div class="card stack"><div class="ghead"><h2>Proteína por día</h2><span class="gleg"><i class="ln"></i>objetivo</span></div><p class="gstat" id="gsProt"></p><div class="chart" id="gcProt"></div></div>
+      <p class="note">Hoy cuenta aunque el día no haya terminado. Los días sin nada apuntado salen vacíos y no cuentan en las medias.</p>
     </div>
   </section>
 
@@ -292,7 +315,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 3.1</p>
+      <p class="note" style="text-align:center">Versión 3.2</p>
     </div>
   </section>
 </div>
@@ -302,6 +325,7 @@ table.hist td.r { white-space: nowrap; }
     <button role="tab" data-tab="hoy" aria-selected="true">Día</button>
     <button role="tab" data-tab="alimentos" aria-selected="false">Alimentos</button>
     <button role="tab" data-tab="peso" aria-selected="false">Peso</button>
+    <button role="tab" data-tab="graficas" aria-selected="false">Gráficas</button>
     <button role="tab" data-tab="historial" aria-selected="false">Historial</button>
   </div>
 </nav>
@@ -680,7 +704,7 @@ table.hist td.r { white-space: nowrap; }
         el('td', { class: 'r num' }, w.cintura_cm ? `${fmt1(w.cintura_cm)} cm` : '—', icaOf(w, data) ? el('div', { class: 'note', text: `C/A ${fmt2(icaOf(w, data))}` }) : null),
         el('td', { class: 'r' }, el('button', { class: 'del', 'aria-label': 'Borrar este peso', onclick: () => { delete data.pesos[w.fecha]; persist(); renderAll(); } }, '✕'))));
     });
-    $('#gKcal').value = data.goals.kcal; $('#gProt').value = data.goals.proteina;
+    $('#gKcal').value = data.goals.kcal; $('#gProt').value = data.goals.proteina; $('#gPeso').value = data.goals.peso ? dec(data.goals.peso) : '';
     if (document.activeElement !== $('#wHt')) $('#wHt').value = altura(data) ? dec(altura(data)) : '';
     renderIca();
   }
@@ -828,15 +852,115 @@ table.hist td.r { white-space: nowrap; }
     if (persist()) { closeSheet('#planSheet'); setStatus('Periodo borrado'); renderAll(); }
   });
 
-  const renderAll = () => { renderDay(); renderFoods(); renderWeights(); renderPlans(); renderHist(); };
+  // ---------- gráficas ----------
+  state.range = 7;
+  const dayIdx = (f) => { const [y, m, d] = f.split('-').map(Number); return Date.UTC(y, m - 1, d) / 864e5; };
+  const lbl = (f) => { const [, m, d] = f.split('-').map(Number); return `${d} ${MESES[m - 1]}`; };
+  const DLETRA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+  function rangeDays() {
+    const hoy = today(); let start;
+    if (state.range > 0) start = addDays(hoy, -(state.range - 1));
+    else {
+      const fs = [...Object.values(data.regs).map((r) => r.fecha), ...Object.keys(data.pesos)].sort();
+      start = fs.length ? fs[0] : hoy;
+      if (dayIdx(hoy) - dayIdx(start) > 730) start = addDays(hoy, -730);
+    }
+    const out = []; for (let d = start; d <= hoy; d = addDays(d, 1)) out.push(d);
+    return out;
+  }
+  const CW = 340, CH = 190, CL = 40, CR = 10, CT = 14, CB = 28;
+  function niceStep(raw) { const e = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e; }
+  const GT = 'paint-order="stroke" style="stroke:var(--panel);stroke-width:3px;stroke-linejoin:round;';
+  function xLabels(days, X) {
+    let s = ''; const n = days.length;
+    if (n <= 8) days.forEach((d, i) => { const dt = new Date(d + 'T12:00'); s += `<text x="${X(i).toFixed(1)}" y="${CH - 10}" text-anchor="middle" font-size="9.5" style="fill:var(--muted)">${DLETRA[dt.getDay()]} ${Number(d.slice(8))}</text>`; });
+    else { const k = 4; for (let j = 0; j <= k; j++) { const i = Math.round(j * (n - 1) / k); s += `<text x="${X(i).toFixed(1)}" y="${CH - 10}" text-anchor="${j === 0 ? 'start' : j === k ? 'end' : 'middle'}" font-size="9.5" style="fill:var(--muted)">${lbl(days[i])}</text>`; } }
+    return s;
+  }
+  function barChart(days, vals, goal, good, unit) {
+    const n = days.length, pw = CW - CL - CR, step = pw / n, bw = Math.max(1.5, Math.min(22, step * 0.7));
+    const mx = Math.max(goal * 1.12, ...vals.filter((v) => v != null)) || 1, tk = niceStep(mx / 4), top = Math.ceil(mx / tk) * tk;
+    const Y = (v) => CT + (1 - v / top) * (CH - CT - CB), X = (i) => CL + step * (i + 0.5);
+    let s = `<svg viewBox="0 0 ${CW} ${CH}" role="img">`;
+    for (let v = 0; v <= top + 1e-9; v += tk) { const y = Y(v).toFixed(1); s += `<line x1="${CL}" x2="${CW - CR}" y1="${y}" y2="${y}" style="stroke:var(--line)"/><text x="${CL - 5}" y="${(+y + 3.5).toFixed(1)}" text-anchor="end" font-size="9.5" style="fill:var(--muted)">${fmtN(v)}</text>`; }
+    vals.forEach((v, i) => { if (v == null) return; const y = Y(v); s += `<rect x="${(X(i) - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(CH - CB - y).toFixed(1)}" rx="${Math.min(3, bw / 3).toFixed(1)}" style="fill:${good(v) ? 'var(--ok)' : 'var(--accent)'}" fill-opacity="${days[i] === today() ? 0.55 : 0.9}"><title>${lbl(days[i])}: ${fmtN(v)} ${unit}</title></rect>`; });
+    const gy = Y(goal).toFixed(1);
+    s += `<line x1="${CL}" x2="${CW - CR}" y1="${gy}" y2="${gy}" style="stroke:var(--ink)" stroke-width="1.5" stroke-dasharray="5 4" opacity=".75"/>`;
+    s += `<text x="${CL + 4}" y="${(gy - 4).toFixed(1)}" text-anchor="start" font-size="9.5" font-weight="800" ${GT}fill:var(--ink)">objetivo ${fmtN(goal)} ${unit}</text>`;
+    return s + xLabels(days, X) + '</svg>';
+  }
+  function lineChart(days, pts, goal) {
+    const d0 = dayIdx(days[0]), span = Math.max(1, dayIdx(days[days.length - 1]) - d0), pw = CW - CL - CR;
+    const X = (f) => CL + (dayIdx(f) - d0) / span * pw;
+    const vs = pts.map((p) => p.v).concat(goal ? [goal] : []);
+    const vmin = Math.min(...vs) - 0.5, vmax = Math.max(...vs) + 0.5, tk = Math.max(1, niceStep((vmax - vmin) / 4));
+    const lo = Math.floor(vmin / tk) * tk, hi = Math.ceil(vmax / tk) * tk;
+    const Y = (v) => CT + (hi - v) / (hi - lo) * (CH - CT - CB);
+    let s = `<svg viewBox="0 0 ${CW} ${CH}" role="img">`;
+    for (let v = lo; v <= hi + 1e-9; v += tk) { const y = Y(v).toFixed(1); s += `<line x1="${CL}" x2="${CW - CR}" y1="${y}" y2="${y}" style="stroke:var(--line)"/><text x="${CL - 5}" y="${(+y + 3.5).toFixed(1)}" text-anchor="end" font-size="9.5" style="fill:var(--muted)">${fmtN(v)}</text>`; }
+    if (goal) { const gy = Y(goal).toFixed(1); s += `<line x1="${CL}" x2="${CW - CR}" y1="${gy}" y2="${gy}" style="stroke:var(--ok)" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${CL + 4}" y="${(gy - 4).toFixed(1)}" text-anchor="start" font-size="9.5" font-weight="800" ${GT}fill:var(--ok)">objetivo ${fmtN(goal)} kg</text>`; }
+    if (pts.length > 1) s += `<polyline points="${pts.map((p) => `${X(p.f).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ')}" fill="none" style="stroke:var(--slate)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    pts.forEach((p, i) => { s += `<circle cx="${X(p.f).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 3}" style="fill:var(--slate);stroke:var(--panel)" stroke-width="1.5"><title>${lbl(p.f)}: ${fmtN(p.v)} kg</title></circle>`; });
+    const L = pts[pts.length - 1], lx = X(L.f);
+    s += `<text x="${lx.toFixed(1)}" y="${(Y(L.v) - 9).toFixed(1)}" text-anchor="${lx > CW - 50 ? 'end' : 'middle'}" font-size="11" font-weight="800" style="fill:var(--ink)">${fmtN(L.v)}</text>`;
+    const tick = (f, a) => `<text x="${X(f).toFixed(1)}" y="${CH - 10}" text-anchor="${a}" font-size="9.5" style="fill:var(--muted)">${lbl(f)}</text>`;
+    return s + tick(days[0], 'start') + tick(days[days.length - 1], 'end') + '</svg>';
+  }
+  function renderCharts() {
+    if ($('#tab-graficas').hidden) return;
+    document.querySelectorAll('.rng button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.r) === state.range)));
+    const days = rangeDays(), conDatos = new Set(Object.values(data.regs).map((r) => r.fecha));
+    const tots = days.map((d) => (conDatos.has(d) ? dayTotals(d) : null));
+    const g = data.goals, nD = tots.filter(Boolean).length;
+    // cintura / altura (KPI principal)
+    const si = $('#gsIca'); si.replaceChildren();
+    const ica = Object.values(data.pesos).filter((w) => w.fecha >= days[0] && w.fecha <= days[days.length - 1] && icaOf(w, data)).sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
+      .map((w) => ({ fecha: w.fecha, v: icaOf(w, data), c: Number(w.cintura_cm) }));
+    if (!altura(data)) { si.textContent = 'Pon tu altura en la pestaña Peso para ver el índice cintura/altura.'; $('#gcIca').replaceChildren(); }
+    else if (!ica.length) { si.textContent = 'No hay medidas de cintura en este periodo. Mídete el viernes y apúntala junto al peso.'; $('#gcIca').replaceChildren(); }
+    else {
+      const L = ica[ica.length - 1], z = icaZone(L.v), meta = altura(data) * ICA_OBJ, falta = r1(L.c - meta);
+      si.append('Último: ', el('b', { text: fmt2(L.v) }), ` (${fmtN(L.c)} cm, ${lbl(L.fecha)}) `, el('span', { class: `pill ${z.cls}`, text: z.t }));
+      if (ica.length > 1) { const d = r2(L.v - ica[0].v); si.append(' · en el periodo: ', el('b', { text: `${d > 0 ? '+' : ''}${fmt2(d)}` })); }
+      si.append(falta > 0 ? ` · cintura objetivo ${fmtN(meta)} cm: te faltan ` : ' · ya por debajo de la mitad de tu altura', falta > 0 ? el('b', { text: `${fmtN(falta)} cm` }) : '');
+      $('#gcIca').innerHTML = icaSvg(ica);
+    }
+    // peso
+    const pts = Object.values(data.pesos).filter((w) => w.fecha >= days[0] && w.fecha <= days[days.length - 1]).sort((a, b) => (a.fecha < b.fecha ? -1 : 1)).map((w) => ({ f: w.fecha, v: Number(w.peso_kg) }));
+    const sp = $('#gsPeso'); sp.replaceChildren();
+    if (!pts.length) { sp.textContent = 'No hay pesos anotados en este periodo.'; $('#gcPeso').replaceChildren(); }
+    else {
+      const L = pts[pts.length - 1], dif = r1(L.v - pts[0].v);
+      sp.append('Último: ', el('b', { text: `${fmtN(L.v)} kg` }), ` (${lbl(L.f)})`);
+      if (pts.length > 1) sp.append(' · en el periodo: ', el('b', { text: `${dif > 0 ? '+' : ''}${fmtN(dif)} kg` }));
+      if (g.peso) { const f = r1(L.v - g.peso); sp.append(` · ${f > 0 ? 'faltan' : 'objetivo alcanzado'}`, f > 0 ? el('b', { text: ` ${fmtN(f)} kg` }) : '', ` para ${fmtN(g.peso)} kg`); }
+      else sp.append(' · pon tu peso objetivo en la pestaña Peso para ver la línea');
+      $('#gcPeso').innerHTML = lineChart(days, pts, g.peso || null);
+    }
+    // calorías y proteína
+    const sk = $('#gsKcal'), spr = $('#gsProt'); sk.replaceChildren(); spr.replaceChildren();
+    if (!nD) {
+      sk.textContent = 'No hay comidas apuntadas en este periodo.'; spr.textContent = sk.textContent;
+      $('#gcKcal').replaceChildren(); $('#gcProt').replaceChildren(); return;
+    }
+    const mk = tots.reduce((a, t) => a + (t ? t.k : 0), 0) / nD, mp = tots.reduce((a, t) => a + (t ? t.p : 0), 0) / nD;
+    const okK = tots.filter((t) => t && t.k <= g.kcal).length, okP = tots.filter((t) => t && t.p >= g.proteina).length;
+    sk.append('Media: ', el('b', { text: `${fmtN(r0(mk))} kcal/día` }), ` · `, el('b', { text: `${okK} de ${nD}` }), ` días sin pasarte de ${fmtN(g.kcal)} kcal`);
+    spr.append('Media: ', el('b', { text: `${fmtN(r0(mp))} g/día` }), ` · `, el('b', { text: `${okP} de ${nD}` }), ` días llegaste a ${g.proteina} g`);
+    $('#gcKcal').innerHTML = barChart(days, tots.map((t) => (t ? t.k : null)), g.kcal, (v) => v <= g.kcal, 'kcal');
+    $('#gcProt').innerHTML = barChart(days, tots.map((t) => (t ? t.p : null)), g.proteina, (v) => v >= g.proteina, 'g');
+  }
+  document.querySelectorAll('.rng button').forEach((b) => b.addEventListener('click', () => { state.range = Number(b.dataset.r); renderCharts(); }));
+
+  const renderAll = () => { renderDay(); renderFoods(); renderWeights(); renderPlans(); renderCharts(); renderHist(); };
 
   // ---------- pestañas y hojas ----------
-  const TITULOS = { hoy: 'Diario de comidas', alimentos: 'Alimentos y recetas', peso: 'Peso y medidas', historial: 'Historial' };
+  const TITULOS = { hoy: 'Diario de comidas', alimentos: 'Alimentos y recetas', peso: 'Peso y medidas', graficas: 'Gráficas', historial: 'Historial' };
   function showTab(name, fromBack) {
     if (!fromBack && name !== state.tab) { state.tabHist.push(state.tab); if (state.tabHist.length > 30) state.tabHist.shift(); }
     state.tab = name; $('#appTitle').textContent = TITULOS[name] || 'Diario de comidas';
     for (const b of document.querySelectorAll('nav.tabs button')) b.setAttribute('aria-selected', String(b.dataset.tab === name));
-    for (const s of ['hoy', 'alimentos', 'peso', 'historial']) $('#tab-' + s).hidden = s !== name;
+    for (const s of ['hoy', 'alimentos', 'peso', 'graficas', 'historial']) $('#tab-' + s).hidden = s !== name;
     renderAll(); window.scrollTo(0, 0); updBack();
   }
   document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
@@ -1344,9 +1468,10 @@ table.hist td.r { white-space: nowrap; }
     }
   });
   $('#saveGoals').addEventListener('click', () => {
-    const k = num($('#gKcal').value), p = num($('#gProt').value);
+    const k = num($('#gKcal').value), p = num($('#gProt').value), pesoRaw = $('#gPeso').value.trim(), w = num(pesoRaw);
     if (!(k > 500) || !(p > 10)) { setStatus('Revisa los objetivos de calorías y proteína.', true); return; }
-    data.goals = { kcal: r0(k), proteina: r0(p) }; if (persist()) { setStatus('Objetivos guardados'); renderAll(); }
+    if (pesoRaw && !(w > 30 && w < 300)) { setStatus('Revisa el peso objetivo (en kg), o déjalo vacío.', true); return; }
+    data.goals = { kcal: r0(k), proteina: r0(p), peso: pesoRaw ? r1(w) : null }; if (persist()) { setStatus('Objetivos guardados'); renderAll(); }
   });
 
   // ---------- copia de seguridad ----------
