@@ -19,6 +19,7 @@
   --slate: #2e4a52; --sage: #69a297; --sage-soft: #e3efeb; --accent: #b85042;
   --ok: #2f7d5b; --warn: #b7791f;
   --head-bg: #2e4a52; --head-ink: #ffffff; --head-sub: rgba(255,255,255,.82);
+  --lv0: #c4453a; --lv1: #df7a33; --lv2: #d9a62e; --lv3: #7fb26a; --lv4: #2f8a5f;
   --r: 12px; color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -27,6 +28,7 @@
     --slate: #8fc0b5; --sage: #7fb8ab; --sage-soft: #1f3335; --accent: #e07a68;
     --ok: #6fc59b; --warn: #e3b25a; color-scheme: dark;
     --head-bg: #2a4f56; --head-ink: #f2f7f6; --head-sub: rgba(242,247,246,.8);
+    --lv0: #e0705f; --lv1: #ee9a55; --lv2: #e8c25a; --lv3: #9fcf86; --lv4: #5fc48f;
   }
   .summary, .btn { color: #0f1a1c !important; }
   .btn.sec { color: var(--slate) !important; }
@@ -196,6 +198,39 @@ table.hist td.r { white-space: nowrap; }
 .gleg { font-size: .75rem; color: var(--muted); white-space: nowrap; }
 .gleg i.ln { display: inline-block; width: 18px; border-top: 2px dashed var(--ink); vertical-align: 3px; margin-right: 5px; opacity: .7; }
 .kpi-main { border: 2px solid var(--head-bg); }
+.goalgrid { display: grid; gap: 10px; }
+.gtile { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--bg); display: grid; gap: 6px; }
+.gtile .gt-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.gtile .gt-name { font-weight: 800; }
+.gtile .gt-st { font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.gtile .gt-st.ok { color: var(--ok); } .gtile .gt-st.go { color: var(--muted); }
+.gtile .gt-val { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.gtile .gt-val b { font-size: 1.7rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.gtile .gt-val span { color: var(--muted); font-size: .9rem; }
+.gbar { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.gbar i { display: block; height: 100%; border-radius: 999px; background: var(--sage); min-width: 4px; }
+.gbar i.done { background: var(--ok); }
+.gtile, .stile { border-left: 5px solid var(--lvc, var(--line)); }
+.gbar i { background: var(--lvc, var(--sage)); }
+.lvdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--lvc); margin-right: 5px; vertical-align: 0; }
+.stile .sbar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; margin-top: 4px; }
+.stile .sbar i { display: block; height: 100%; border-radius: 999px; background: var(--lvc); min-width: 3px; }
+.lvleg { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--muted); flex-wrap: wrap; }
+.lvleg i { display: inline-block; width: 22px; height: 8px; border-radius: 4px; }
+.gtile .gt-foot { font-size: .82rem; color: var(--muted); }
+.gtile .gt-foot b { color: var(--ink); }
+.lgsub { font-size: .78rem; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.statgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stile { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--bg); display: grid; gap: 2px; align-content: start; }
+.stile .st-name { font-size: .78rem; font-weight: 700; color: var(--muted); }
+.stile .st-val { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stile .st-val small { font-size: .85rem; font-weight: 600; color: var(--muted); }
+.stile .st-foot { font-size: .75rem; color: var(--muted); line-height: 1.3; }
+.hitos { display: flex; flex-wrap: wrap; gap: 6px; }
+.hito { font-size: .82rem; font-weight: 700; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); }
+.hito.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); border-color: transparent; color: var(--ink); }
+.hito.ok::before { content: '✓ '; color: var(--ok); font-weight: 900; }
+.hito.next::before { content: '○ '; }
 .gstat { margin: 0; font-size: .9rem; color: var(--muted); }
 .gstat b { color: var(--ink); }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--slate); font-weight: 700; text-decoration: underline; font-size: inherit; }
@@ -291,6 +326,15 @@ table.hist td.r { white-space: nowrap; }
       <div class="rng" role="group" aria-label="Periodo de las gráficas">
         <button data-r="7" aria-pressed="true">7 días</button><button data-r="30" aria-pressed="false">30 días</button><button data-r="90" aria-pressed="false">90 días</button><button data-r="0" aria-pressed="false">Todo</button>
       </div>
+      <div class="card stack" id="logros">
+        <h2>Objetivos logrados</h2>
+        <div class="goalgrid" id="lgGoals"></div>
+        <div class="lgsub" id="lgPeriodo">En el periodo</div>
+        <div class="statgrid" id="lgDays"></div>
+        <div class="lgsub">Hitos</div>
+        <div class="hitos" id="lgHitos"></div>
+        <div class="lvleg">Cumplimiento: <i style="background:var(--lv0)"></i>&lt;25 % <i style="background:var(--lv1)"></i>25–49 % <i style="background:var(--lv2)"></i>50–74 % <i style="background:var(--lv3)"></i>75–99 % <i style="background:var(--lv4)"></i>100 %</div>
+      </div>
       <div class="card stack kpi-main"><div class="ghead"><h2>Cintura / altura <span class="tag">KPI principal</span></h2><span class="gleg"><i class="ln"></i>0,50</span></div><p class="gstat" id="gsIca"></p><div class="chart" id="gcIca"></div></div>
       <div class="card stack"><div class="ghead"><h2>Cintura</h2><span class="gleg"><i class="ln"></i>objetivo</span></div><p class="gstat" id="gsCin"></p><div class="chart" id="gcCin"></div></div>
       <div class="card stack"><div class="ghead"><h2>Peso</h2><span class="gleg"><i class="ln"></i>objetivo</span></div><p class="gstat" id="gsPeso"></p><div class="chart" id="gcPeso"></div></div>
@@ -316,7 +360,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 3.4</p>
+      <p class="note" style="text-align:center">Versión 3.5</p>
     </div>
   </section>
 </div>
@@ -928,6 +972,7 @@ table.hist td.r { white-space: nowrap; }
     if ($('#tab-graficas').hidden) return;
     document.querySelectorAll('.rng button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.r) === state.range)));
     const days = rangeDays(), conDatos = new Set(Object.values(data.regs).map((r) => r.fecha));
+    renderLogros(days);
     const tots = days.map((d) => (conDatos.has(d) ? dayTotals(d) : null));
     const g = data.goals, nD = tots.filter(Boolean).length;
     // cintura / altura (KPI principal)
@@ -983,6 +1028,95 @@ table.hist td.r { white-space: nowrap; }
     $('#gcProt').innerHTML = barChart(days, tots.map((t) => (t ? t.p : null)), g.proteina, (v) => v >= g.proteina, 'g');
   }
   document.querySelectorAll('.rng button').forEach((b) => b.addEventListener('click', () => { state.range = Number(b.dataset.r); renderCharts(); }));
+
+  // ---------- objetivos logrados ----------
+  const lvl = (p) => (p >= 1 ? 4 : p >= 0.75 ? 3 : p >= 0.5 ? 2 : p >= 0.25 ? 1 : 0);
+  const lvVar = (p) => `--lvc: var(--lv${lvl(p)})`;
+  function goalTile(name, unit, start, now, goal, fmt, extra) {
+    const done = goal != null && now <= goal;
+    const pct = goal == null ? 0 : done ? 1 : start > goal ? Math.max(0, Math.min(1, (start.v - now) / (start.v - goal))) : 0;
+    const t = el('div', { class: 'gtile', style: goal != null ? lvVar(pct) : null });
+    const st = el('span', { class: 'gt-st ' + (done ? 'ok' : 'go') });
+    if (goal != null) st.append(el('i', { class: 'lvdot' }), done ? '✓ Conseguido' : `${Math.round(pct * 100)} % del camino`);
+    t.append(el('div', { class: 'gt-top' }, el('span', { class: 'gt-name', text: name }), st));
+    t.append(el('div', { class: 'gt-val' }, el('b', { text: fmt(now) + (unit ? ' ' + unit : '') }), el('span', { text: goal != null ? `objetivo ${fmt(goal)}${unit ? ' ' + unit : ''}` : 'sin objetivo' })));
+    if (goal != null) { const bar = el('div', { class: 'gbar', role: 'img', 'aria-label': `${Math.round(pct * 100)} % del camino hacia el objetivo` }); bar.append(el('i', { class: done ? 'done' : null, style: `width:${(pct * 100).toFixed(1)}%` })); t.append(bar); }
+    t.append(el('div', { class: 'gt-foot' }, ...extra));
+    return t;
+  }
+  // number with valueOf for comparisons
+  const sv = (v, f) => ({ v, f, valueOf() { return v; } });
+  function streak(days, ok) { // racha que termina hoy (si hoy aún no cumple, cuenta hasta ayer)
+    let n = 0, i = days.length - 1;
+    if (i >= 0 && !ok(days[i])) i--;
+    for (; i >= 0 && ok(days[i]); i--) n++;
+    return n;
+  }
+  function bestStreak(days, ok) { let b = 0, c = 0; for (const d of days) { c = ok(d) ? c + 1 : 0; if (c > b) b = c; } return b; }
+  function renderLogros(days) {
+    const box = $('#lgGoals'); box.replaceChildren();
+    const P = Object.values(data.pesos).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+    const icaP = P.filter((w) => icaOf(w, data)), cinP = P.filter((w) => Number(w.cintura_cm) > 0), pesP = P.filter((w) => Number(w.peso_kg) > 0);
+    const g = data.goals, alt = altura(data);
+    if (icaP.length) {
+      const a = icaP[0], z = icaP[icaP.length - 1], s0 = icaOf(a, data), n = icaOf(z, data);
+      box.append(goalTile('Cintura / altura', '', sv(s0, a.fecha), n, ICA_OBJ, fmt2,
+        [`Desde ${fmt2(s0)} (${lbl(a.fecha)}) `, el('b', { text: `${r2(n - s0) <= 0 ? '' : '+'}${fmt2(r2(n - s0))}` })]));
+    }
+    if (cinP.length) {
+      const a = cinP[0], z = cinP[cinP.length - 1], s0 = Number(a.cintura_cm), n = Number(z.cintura_cm), goal = alt ? r1(alt * ICA_OBJ) : null;
+      box.append(goalTile('Cintura', 'cm', sv(s0, a.fecha), n, goal, fmtN,
+        [`Desde ${fmtN(s0)} cm (${lbl(a.fecha)}): `, el('b', { text: `${fmtN(r1(s0 - n))} cm menos` }), goal != null && n > goal ? ` · faltan ${fmtN(r1(n - goal))} cm` : '']));
+    }
+    if (pesP.length) {
+      const a = pesP[0], z = pesP[pesP.length - 1], s0 = Number(a.peso_kg), n = Number(z.peso_kg), goal = g.peso || null;
+      box.append(goalTile('Peso', 'kg', sv(s0, a.fecha), n, goal, fmtN,
+        [`Desde ${fmtN(s0)} kg (${lbl(a.fecha)}): `, el('b', { text: `${fmtN(r1(s0 - n))} kg menos` }), goal != null && n > goal ? ` · faltan ${fmtN(r1(n - goal))} kg` : goal == null ? ' · pon tu peso objetivo en la pestaña Peso' : '']));
+    }
+    if (!box.children.length) box.append(el('p', { class: 'note', text: 'Apunta tu peso y tu cintura (pestaña Peso) para ver aquí cuánto llevas recorrido.' }));
+    // días del periodo
+    const conDatos = new Set(Object.values(data.regs).map((r) => r.fecha));
+    const okP = (d) => conDatos.has(d) && dayTotals(d).p >= g.proteina, okK = (d) => conDatos.has(d) && dayTotals(d).k <= g.kcal, ap = (d) => conDatos.has(d);
+    const nD = days.filter(ap).length;
+    $('#lgPeriodo').textContent = state.range > 0 ? `En los últimos ${state.range} días` : 'Desde el principio';
+    const dbox = $('#lgDays'); dbox.replaceChildren();
+    const tile = (name, a, b, foot) => {
+      const p = b ? a / b : 0, bar = el('div', { class: 'sbar' }); bar.append(el('i', { style: `width:${(p * 100).toFixed(1)}%` }));
+      return el('div', { class: 'stile', style: b ? lvVar(p) : null }, el('span', { class: 'st-name', text: name }),
+        el('span', { class: 'st-val' }, String(a), el('small', { text: ` de ${b}` })), el('span', { class: 'st-foot', text: `${b ? Math.round(p * 100) : 0} % · ${foot}` }), bar);
+    };
+    dbox.append(tile('Proteína OK', days.filter(okP).length, nD, `racha: ${streak(days, okP)} · mejor: ${bestStreak(days, okP)}`));
+    dbox.append(tile('Calorías OK', days.filter(okK).length, nD, `racha: ${streak(days, okK)} · mejor: ${bestStreak(days, okK)}`));
+    dbox.append(tile('Días apuntados', nD, days.length, `racha: ${streak(days, ap)} días`));
+    // hitos (desde el principio)
+    const hb = $('#lgHitos'); hb.replaceChildren();
+    const add = (ok, text) => hb.append(el('span', { class: 'hito ' + (ok ? 'ok' : 'next'), text }));
+    const serie = (lost, steps, label, unit, objetivo) => {
+      let next = null;
+      for (const st of steps) { if (lost >= st) add(true, label(st)); else { next = st; break; } }
+      if (objetivo) add(objetivo.ok, objetivo.text);
+      else if (next != null) add(false, `${label(next)} (faltan ${fmtN(r1(next - lost))} ${unit})`);
+    };
+    if (cinP.length) {
+      const lost = r1(Number(cinP[0].cintura_cm) - Number(cinP[cinP.length - 1].cintura_cm)), goal = alt ? alt * ICA_OBJ : null;
+      const steps = [2, 5, 10, 15, 20, 25].filter((x) => !goal || Number(cinP[0].cintura_cm) - x > goal);
+      serie(lost, steps, (x) => `−${x} cm de cintura`, 'cm', null);
+    }
+    if (icaP.length) {
+      const n = icaOf(icaP[icaP.length - 1], data), s0 = icaOf(icaP[0], data);
+      for (const lv of [0.65, 0.6, 0.55]) if (s0 > lv) { if (n < lv) add(true, `Cintura/altura bajo ${fmt2(lv)}`); else { add(false, `Bajar de ${fmt2(lv)} (faltan ${fmt2(r2(n - lv + 0.005))})`); break; } }
+      add(n < ICA_OBJ, n < ICA_OBJ ? '¡Cintura/altura por debajo de 0,50!' : 'Objetivo: bajar de 0,50');
+    }
+    if (pesP.length) {
+      const lost = r1(Number(pesP[0].peso_kg) - Number(pesP[pesP.length - 1].peso_kg)), goal = g.peso;
+      const steps = [1, 2, 5, 10, 15, 20].filter((x) => !goal || Number(pesP[0].peso_kg) - x > goal);
+      serie(lost, steps, (x) => `−${x} kg`, 'kg', goal && Number(pesP[pesP.length - 1].peso_kg) <= goal ? { ok: true, text: `¡Peso objetivo de ${fmtN(goal)} kg!` } : null);
+    }
+    const all = []; { const fs = [...conDatos].sort(); if (fs.length) for (let d = fs[0]; d <= today(); d = addDays(d, 1)) all.push(d); }
+    const bp = bestStreak(all, okP), ba = bestStreak(all, ap);
+    for (const n of [3, 7, 14, 30]) { if (bp >= n) add(true, `${n} días seguidos con proteína OK`); else { add(false, `${n} días seguidos con proteína OK (mejor: ${bp})`); break; } }
+    for (const n of [7, 30]) { if (ba >= n) add(true, `${n} días seguidos apuntando`); else { add(false, `${n} días seguidos apuntando (mejor: ${ba})`); break; } }
+  }
 
   const renderAll = () => { renderDay(); renderFoods(); renderWeights(); renderPlans(); renderCharts(); renderHist(); };
 
