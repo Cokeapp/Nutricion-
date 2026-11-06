@@ -316,7 +316,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 3.3</p>
+      <p class="note" style="text-align:center">Versión 3.4</p>
     </div>
   </section>
 </div>
@@ -757,12 +757,28 @@ table.hist td.r { white-space: nowrap; }
       const lastP = i === pts.length - 1;
       s += `<circle cx="${X(p).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="${lastP ? 5 : 3.5}" style="fill:var(--slate);stroke:var(--panel)" stroke-width="2"/>`;
     });
-    const lp = pts[pts.length - 1], lx = X(lp), anchor = lx > W - 60 ? 'end' : lx < L + 30 ? 'start' : 'middle';
-    s += `<text x="${lx.toFixed(1)}" y="${(Y(lp.v) - 10).toFixed(1)}" text-anchor="${anchor}" font-size="12" font-weight="800" style="fill:var(--ink)">${fmt2(lp.v)}</text>`;
-    const lab = (f) => { const [, m, d] = f.split('-').map(Number); return `${d} ${MESES[m - 1]}`; };
-    s += `<text x="${pts.length === 1 ? lx.toFixed(1) : L}" y="${H - 8}" text-anchor="${pts.length === 1 ? 'middle' : 'start'}" font-size="10" style="fill:var(--muted)">${lab(pts[0].fecha)}</text>`;
-    if (pts.length > 1) s += `<text x="${W - R}" y="${H - 8}" text-anchor="end" font-size="10" style="fill:var(--muted)">${lab(lp.fecha)}</text>`;
+    const xs = pts.map((p) => X(p)), ys = pts.map((p) => Y(p.v));
+    s += ptLabels(xs, ys, pts.map((p) => fmt2(p.v)), W, L, R);
+    s += ptTicks(xs, pts.map((p) => p.fecha), H, L, W, R);
     return s + '</svg>';
+  }
+
+  // etiquetas de valor en todos los puntos (si son pocos) sin que se pisen
+  function ptLabels(xs, ys, texts, W0, Lm, Rm) {
+    let s = '', lastX = -1e9, lastUp = true;
+    const many = xs.length > 10;
+    xs.forEach((x, i) => {
+      const last = i === xs.length - 1; if (many && !last) return;
+      const up = x - lastX < 34 ? !lastUp : true; lastX = x; lastUp = up;
+      const anchor = x > W0 - Rm - 22 ? 'end' : x < Lm + 22 ? 'start' : 'middle';
+      s += `<text x="${x.toFixed(1)}" y="${(up ? ys[i] - 10 : ys[i] + 18).toFixed(1)}" text-anchor="${anchor}" font-size="${last ? 11.5 : 10.5}" font-weight="${last ? 800 : 700}" paint-order="stroke" style="stroke:var(--panel);stroke-width:3px;stroke-linejoin:round;fill:var(--ink)">${texts[i]}</text>`;
+    });
+    return s;
+  }
+  function ptTicks(xs, fechas, H0, Lm, W0, Rm) {
+    const one = (x, f, a) => `<text x="${x.toFixed(1)}" y="${H0 - 8}" text-anchor="${a}" font-size="9.5" style="fill:var(--muted)">${lbl(f)}</text>`;
+    if (xs.length <= 6) { let s = '', lastX = -1e9; xs.forEach((x, i) => { if (x - lastX < 38 && i !== xs.length - 1) return; lastX = x; s += one(x, fechas[i], x > W0 - Rm - 22 ? 'end' : x < Lm + 22 ? 'start' : 'middle'); }); return s; }
+    return one(Lm, fechas[0], 'start') + one(W0 - Rm, fechas[fechas.length - 1], 'end');
   }
 
   // ---------- pantalla: historial ----------
@@ -860,7 +876,7 @@ table.hist td.r { white-space: nowrap; }
   const DLETRA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
   function rangeDays() {
     const hoy = today(); let start;
-    if (state.range > 0) start = addDays(hoy, -(state.range - 1));
+    if (state.range > 0) start = addDays(hoy, -state.range); // 7 días: de viernes a viernes, ambos incluidos
     else {
       const fs = [...Object.values(data.regs).map((r) => r.fecha), ...Object.keys(data.pesos)].sort();
       start = fs.length ? fs[0] : hoy;
@@ -902,10 +918,11 @@ table.hist td.r { white-space: nowrap; }
     if (goal) { const gy = Y(goal).toFixed(1); s += `<line x1="${CL}" x2="${CW - CR}" y1="${gy}" y2="${gy}" style="stroke:var(--ok)" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${CL + 4}" y="${(gy - 4).toFixed(1)}" text-anchor="start" font-size="9.5" font-weight="800" ${GT}fill:var(--ok)">objetivo ${fmtN(goal)} ${unit}</text>`; }
     if (pts.length > 1) s += `<polyline points="${pts.map((p) => `${X(p.f).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ')}" fill="none" style="stroke:var(--slate)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
     pts.forEach((p, i) => { s += `<circle cx="${X(p.f).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 3}" style="fill:var(--slate);stroke:var(--panel)" stroke-width="1.5"><title>${lbl(p.f)}: ${fmtN(p.v)} ${unit}</title></circle>`; });
-    const L = pts[pts.length - 1], lx = X(L.f);
-    s += `<text x="${lx.toFixed(1)}" y="${(Y(L.v) - 9).toFixed(1)}" text-anchor="${lx > CW - 50 ? 'end' : 'middle'}" font-size="11" font-weight="800" style="fill:var(--ink)">${fmtN(L.v)}</text>`;
-    const tick = (f, a) => `<text x="${X(f).toFixed(1)}" y="${CH - 10}" text-anchor="${a}" font-size="9.5" style="fill:var(--muted)">${lbl(f)}</text>`;
-    return s + tick(days[0], 'start') + tick(days[days.length - 1], 'end') + '</svg>';
+    const xs = pts.map((p) => X(p.f)), ys = pts.map((p) => Y(p.v));
+    s += ptLabels(xs, ys, pts.map((p) => fmtN(p.v)), CW, CL, CR);
+    s += pts.length <= 6 ? ptTicks(xs, pts.map((p) => p.f), CH - 2, CL, CW, CR)
+      : `<text x="${CL}" y="${CH - 10}" text-anchor="start" font-size="9.5" style="fill:var(--muted)">${lbl(days[0])}</text><text x="${CW - CR}" y="${CH - 10}" text-anchor="end" font-size="9.5" style="fill:var(--muted)">${lbl(days[days.length - 1])}</text>`;
+    return s + '</svg>';
   }
   function renderCharts() {
     if ($('#tab-graficas').hidden) return;
@@ -922,7 +939,7 @@ table.hist td.r { white-space: nowrap; }
     else {
       const L = ica[ica.length - 1], z = icaZone(L.v), meta = altura(data) * ICA_OBJ, falta = r1(L.c - meta);
       si.append('Último: ', el('b', { text: fmt2(L.v) }), ` (${fmtN(L.c)} cm, ${lbl(L.fecha)}) `, el('span', { class: `pill ${z.cls}`, text: z.t }));
-      if (ica.length > 1) { const d = r2(L.v - ica[0].v); si.append(' · en el periodo: ', el('b', { text: `${d > 0 ? '+' : ''}${fmt2(d)}` })); }
+      if (ica.length > 1) { const d = r2(L.v - ica[0].v); si.append(' · en el periodo: ', el('b', { text: `${d > 0 ? '+' : ''}${fmt2(d)}` }), ` (de ${fmt2(ica[0].v)} el ${lbl(ica[0].fecha)})`); }
       si.append(falta > 0 ? ` · cintura objetivo ${fmtN(meta)} cm: te faltan ` : ' · ya por debajo de la mitad de tu altura', falta > 0 ? el('b', { text: `${fmtN(falta)} cm` }) : '');
       $('#gcIca').innerHTML = icaSvg(ica);
     }
@@ -935,7 +952,7 @@ table.hist td.r { white-space: nowrap; }
     else {
       const L = cin[cin.length - 1], dif = r1(L.v - cin[0].v);
       sc.append('Última: ', el('b', { text: `${fmtN(L.v)} cm` }), ` (${lbl(L.f)})`);
-      if (cin.length > 1) sc.append(' · en el periodo: ', el('b', { text: `${dif > 0 ? '+' : ''}${fmtN(dif)} cm` }));
+      if (cin.length > 1) sc.append(' · en el periodo: ', el('b', { text: `${dif > 0 ? '+' : ''}${fmtN(dif)} cm` }), ` (de ${fmtN(cin[0].v)} cm el ${lbl(cin[0].f)})`);
       if (cinObj) { const f = r1(L.v - cinObj); sc.append(` · objetivo ${fmtN(cinObj)} cm (la mitad de tu altura)`, f > 0 ? ': te faltan ' : ': conseguido', f > 0 ? el('b', { text: `${fmtN(f)} cm` }) : ''); }
       else sc.append(' · pon tu altura en la pestaña Peso para ver el objetivo');
       $('#gcCin').innerHTML = lineChart(days, cin, cinObj, 'cm');
@@ -947,7 +964,7 @@ table.hist td.r { white-space: nowrap; }
     else {
       const L = pts[pts.length - 1], dif = r1(L.v - pts[0].v);
       sp.append('Último: ', el('b', { text: `${fmtN(L.v)} kg` }), ` (${lbl(L.f)})`);
-      if (pts.length > 1) sp.append(' · en el periodo: ', el('b', { text: `${dif > 0 ? '+' : ''}${fmtN(dif)} kg` }));
+      if (pts.length > 1) sp.append(' · en el periodo: ', el('b', { text: `${dif > 0 ? '+' : ''}${fmtN(dif)} kg` }), ` (de ${fmtN(pts[0].v)} kg el ${lbl(pts[0].f)})`);
       if (g.peso) { const f = r1(L.v - g.peso); sp.append(` · ${f > 0 ? 'faltan' : 'objetivo alcanzado'}`, f > 0 ? el('b', { text: ` ${fmtN(f)} kg` }) : '', ` para ${fmtN(g.peso)} kg`); }
       else sp.append(' · pon tu peso objetivo en la pestaña Peso para ver la línea');
       $('#gcPeso').innerHTML = lineChart(days, pts, g.peso || null);
