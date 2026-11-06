@@ -292,6 +292,7 @@ table.hist td.r { white-space: nowrap; }
         <button data-r="7" aria-pressed="true">7 días</button><button data-r="30" aria-pressed="false">30 días</button><button data-r="90" aria-pressed="false">90 días</button><button data-r="0" aria-pressed="false">Todo</button>
       </div>
       <div class="card stack kpi-main"><div class="ghead"><h2>Cintura / altura <span class="tag">KPI principal</span></h2><span class="gleg"><i class="ln"></i>0,50</span></div><p class="gstat" id="gsIca"></p><div class="chart" id="gcIca"></div></div>
+      <div class="card stack"><div class="ghead"><h2>Cintura</h2><span class="gleg"><i class="ln"></i>objetivo</span></div><p class="gstat" id="gsCin"></p><div class="chart" id="gcCin"></div></div>
       <div class="card stack"><div class="ghead"><h2>Peso</h2><span class="gleg"><i class="ln"></i>objetivo</span></div><p class="gstat" id="gsPeso"></p><div class="chart" id="gcPeso"></div></div>
       <div class="card stack"><div class="ghead"><h2>Calorías por día</h2><span class="gleg"><i class="ln"></i>objetivo</span></div><p class="gstat" id="gsKcal"></p><div class="chart" id="gcKcal"></div></div>
       <div class="card stack"><div class="ghead"><h2>Proteína por día</h2><span class="gleg"><i class="ln"></i>objetivo</span></div><p class="gstat" id="gsProt"></p><div class="chart" id="gcProt"></div></div>
@@ -315,7 +316,7 @@ table.hist td.r { white-space: nowrap; }
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 3.2</p>
+      <p class="note" style="text-align:center">Versión 3.3</p>
     </div>
   </section>
 </div>
@@ -889,7 +890,7 @@ table.hist td.r { white-space: nowrap; }
     s += `<text x="${CL + 4}" y="${(gy - 4).toFixed(1)}" text-anchor="start" font-size="9.5" font-weight="800" ${GT}fill:var(--ink)">objetivo ${fmtN(goal)} ${unit}</text>`;
     return s + xLabels(days, X) + '</svg>';
   }
-  function lineChart(days, pts, goal) {
+  function lineChart(days, pts, goal, unit = 'kg') {
     const d0 = dayIdx(days[0]), span = Math.max(1, dayIdx(days[days.length - 1]) - d0), pw = CW - CL - CR;
     const X = (f) => CL + (dayIdx(f) - d0) / span * pw;
     const vs = pts.map((p) => p.v).concat(goal ? [goal] : []);
@@ -898,9 +899,9 @@ table.hist td.r { white-space: nowrap; }
     const Y = (v) => CT + (hi - v) / (hi - lo) * (CH - CT - CB);
     let s = `<svg viewBox="0 0 ${CW} ${CH}" role="img">`;
     for (let v = lo; v <= hi + 1e-9; v += tk) { const y = Y(v).toFixed(1); s += `<line x1="${CL}" x2="${CW - CR}" y1="${y}" y2="${y}" style="stroke:var(--line)"/><text x="${CL - 5}" y="${(+y + 3.5).toFixed(1)}" text-anchor="end" font-size="9.5" style="fill:var(--muted)">${fmtN(v)}</text>`; }
-    if (goal) { const gy = Y(goal).toFixed(1); s += `<line x1="${CL}" x2="${CW - CR}" y1="${gy}" y2="${gy}" style="stroke:var(--ok)" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${CL + 4}" y="${(gy - 4).toFixed(1)}" text-anchor="start" font-size="9.5" font-weight="800" ${GT}fill:var(--ok)">objetivo ${fmtN(goal)} kg</text>`; }
+    if (goal) { const gy = Y(goal).toFixed(1); s += `<line x1="${CL}" x2="${CW - CR}" y1="${gy}" y2="${gy}" style="stroke:var(--ok)" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${CL + 4}" y="${(gy - 4).toFixed(1)}" text-anchor="start" font-size="9.5" font-weight="800" ${GT}fill:var(--ok)">objetivo ${fmtN(goal)} ${unit}</text>`; }
     if (pts.length > 1) s += `<polyline points="${pts.map((p) => `${X(p.f).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ')}" fill="none" style="stroke:var(--slate)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-    pts.forEach((p, i) => { s += `<circle cx="${X(p.f).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 3}" style="fill:var(--slate);stroke:var(--panel)" stroke-width="1.5"><title>${lbl(p.f)}: ${fmtN(p.v)} kg</title></circle>`; });
+    pts.forEach((p, i) => { s += `<circle cx="${X(p.f).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 3}" style="fill:var(--slate);stroke:var(--panel)" stroke-width="1.5"><title>${lbl(p.f)}: ${fmtN(p.v)} ${unit}</title></circle>`; });
     const L = pts[pts.length - 1], lx = X(L.f);
     s += `<text x="${lx.toFixed(1)}" y="${(Y(L.v) - 9).toFixed(1)}" text-anchor="${lx > CW - 50 ? 'end' : 'middle'}" font-size="11" font-weight="800" style="fill:var(--ink)">${fmtN(L.v)}</text>`;
     const tick = (f, a) => `<text x="${X(f).toFixed(1)}" y="${CH - 10}" text-anchor="${a}" font-size="9.5" style="fill:var(--muted)">${lbl(f)}</text>`;
@@ -924,6 +925,20 @@ table.hist td.r { white-space: nowrap; }
       if (ica.length > 1) { const d = r2(L.v - ica[0].v); si.append(' · en el periodo: ', el('b', { text: `${d > 0 ? '+' : ''}${fmt2(d)}` })); }
       si.append(falta > 0 ? ` · cintura objetivo ${fmtN(meta)} cm: te faltan ` : ' · ya por debajo de la mitad de tu altura', falta > 0 ? el('b', { text: `${fmtN(falta)} cm` }) : '');
       $('#gcIca').innerHTML = icaSvg(ica);
+    }
+    // cintura (cm)
+    const sc = $('#gsCin'); sc.replaceChildren();
+    const cin = Object.values(data.pesos).filter((w) => w.fecha >= days[0] && w.fecha <= days[days.length - 1] && Number(w.cintura_cm) > 0)
+      .sort((a, b) => (a.fecha < b.fecha ? -1 : 1)).map((w) => ({ f: w.fecha, v: Number(w.cintura_cm) }));
+    const cinObj = altura(data) ? r1(altura(data) * ICA_OBJ) : null;
+    if (!cin.length) { sc.textContent = 'No hay medidas de cintura en este periodo. Mídete el viernes y apúntala junto al peso.'; $('#gcCin').replaceChildren(); }
+    else {
+      const L = cin[cin.length - 1], dif = r1(L.v - cin[0].v);
+      sc.append('Última: ', el('b', { text: `${fmtN(L.v)} cm` }), ` (${lbl(L.f)})`);
+      if (cin.length > 1) sc.append(' · en el periodo: ', el('b', { text: `${dif > 0 ? '+' : ''}${fmtN(dif)} cm` }));
+      if (cinObj) { const f = r1(L.v - cinObj); sc.append(` · objetivo ${fmtN(cinObj)} cm (la mitad de tu altura)`, f > 0 ? ': te faltan ' : ': conseguido', f > 0 ? el('b', { text: `${fmtN(f)} cm` }) : ''); }
+      else sc.append(' · pon tu altura en la pestaña Peso para ver el objetivo');
+      $('#gcCin').innerHTML = lineChart(days, cin, cinObj, 'cm');
     }
     // peso
     const pts = Object.values(data.pesos).filter((w) => w.fecha >= days[0] && w.fecha <= days[days.length - 1]).sort((a, b) => (a.fecha < b.fecha ? -1 : 1)).map((w) => ({ f: w.fecha, v: Number(w.peso_kg) }));
