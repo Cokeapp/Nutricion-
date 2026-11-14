@@ -279,6 +279,15 @@ table.hist td.r { white-space: nowrap; }
 .tips li .tx { color: var(--ink); }
 .ayb { font-size: .85rem; margin-top: 8px; align-self: flex-start; }
 nav.tabs .in { grid-template-columns: repeat(6, 1fr); }
+.seg.seg3 { grid-template-columns: repeat(3, 1fr); } .seg3 button { padding: 10px 4px; font-size: .85rem; line-height: 1.2; }
+.chk { display: flex; gap: 10px; align-items: center; font-weight: 600; font-size: .92rem; }
+.chk input { width: 20px; height: 20px; accent-color: var(--slate); flex: none; }
+.crow { display: grid; grid-template-columns: 1fr auto; column-gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.crow span { font-weight: 600; } .crow b { text-align: right; font-variant-numeric: tabular-nums; }
+.crow small { grid-column: 1 / -1; color: var(--muted); font-size: .78rem; }
+.crow.strong { background: var(--sage-soft); border-radius: 10px; padding: 10px; border-bottom: 0; } .crow.strong b { font-size: 1.15rem; }
+.note.warn { color: var(--accent); }
+.note.ok { color: var(--ok); font-weight: 600; }
 nav.tabs button { font-size: .76rem; padding: 12px 1px 14px; letter-spacing: -.1px; }
 @media (prefers-reduced-motion: no-preference) { .bar > i { transition: width .3s ease; } }
 </style>
@@ -344,6 +353,32 @@ nav.tabs button { font-size: .76rem; padding: 12px 1px 14px; letter-spacing: -.1
         <h2>Historial de peso</h2>
         <table class="hist" id="weightTable"><thead><tr><th>Fecha</th><th class="r">Peso</th><th class="r">Cintura</th><th></th></tr></thead><tbody></tbody></table>
       </div>
+      <div class="card stack" id="calcCard">
+        <h2>Calcular mis objetivos</h2>
+        <p class="note">Calcula las calorías que gastas y te propone calorías, proteína, grasa e hidratos según tu objetivo. Usa tu último peso y tu altura.</p>
+        <div class="grid2">
+          <label class="f" for="cSexo">Sexo<select id="cSexo"><option value="h">Hombre</option><option value="m">Mujer</option></select></label>
+          <label class="f" for="cEdad">Edad (años)<input type="text" id="cEdad" inputmode="numeric" autocomplete="off" placeholder="61"></label>
+        </div>
+        <label class="f" for="cAct">Actividad<select id="cAct"></select></label>
+        <div class="f"><span>Objetivo</span><div class="seg seg3" id="cObj"><button type="button" data-v="perder">Perder grasa</button><button type="button" data-v="mantener">Mantener</button><button type="button" data-v="ganar">Ganar músculo</button></div></div>
+        <div class="grid2">
+          <label class="f" for="cAjuste"><span id="cAjL">Déficit (%)</span><input type="text" id="cAjuste" inputmode="decimal" autocomplete="off" placeholder="15"></label>
+          <label class="f" for="cBase">Gramos por kilo de<select id="cBase"><option value="obj">Peso objetivo</option><option value="act">Peso actual</option></select></label>
+        </div>
+        <div class="grid2">
+          <label class="f" for="cProtKg">Proteína (g por kg)<input type="text" id="cProtKg" inputmode="decimal" autocomplete="off" placeholder="1,6"></label>
+          <label class="f" for="cGrasaKg">Grasa (g por kg)<input type="text" id="cGrasaKg" inputmode="decimal" autocomplete="off" placeholder="0,7"></label>
+        </div>
+        <div class="stack" id="cRes"></div>
+        <label class="chk"><input type="checkbox" id="cAuto"> Recalcular los objetivos cada vez que apunte el peso</label>
+        <button class="btn" id="cUse">Usar como mis objetivos</button>
+        <p class="note">Metabolismo basal con la fórmula de Mifflin-St Jeor, por la actividad. Para perder grasa, un déficit del 10–15 % sobre el mantenimiento; para ganar músculo, un superávit del 10–15 %. Reparto: proteína 1,2–2,2 g por kg, grasa 0,5–1 g por kg e hidratos el resto (mejor 3 g por kg o más). Con mucho peso que perder, calcula los gramos con el peso objetivo. Son orientativos: si tienes alguna duda de salud, consúltala con tu médico.</p>
+      </div>
+      <div class="card stack">
+        <h2>Ajuste según tu progreso</h2>
+        <div class="stack" id="progRes"></div>
+      </div>
       <div class="card stack">
         <h2>Objetivos diarios</h2>
         <div class="grid2">
@@ -351,6 +386,7 @@ nav.tabs button { font-size: .76rem; padding: 12px 1px 14px; letter-spacing: -.1
           <label class="f" for="gProt">Proteína (g)<input type="text" id="gProt" inputmode="decimal" autocomplete="off"></label>
         </div>
         <label class="f" for="gPeso">Peso objetivo (kg, opcional)<input type="text" id="gPeso" inputmode="decimal" autocomplete="off" placeholder="Para la gráfica de peso"></label>
+        <p class="note" id="gMacros"></p>
         <button class="btn sec" id="saveGoals">Guardar objetivos</button>
       </div>
       <div class="card stack">
@@ -445,7 +481,7 @@ nav.tabs button { font-size: .76rem; padding: 12px 1px 14px; letter-spacing: -.1
         <input type="file" id="importFile" accept=".json,application/json" hidden>
         <p class="note" id="storeInfo"></p>
       </div>
-      <p class="note" style="text-align:center">Versión 3.6</p>
+      <p class="note" style="text-align:center">Versión 3.7</p>
     </div>
   </section>
 </div>
@@ -635,6 +671,7 @@ nav.tabs button { font-size: .76rem; padding: 12px 1px 14px; letter-spacing: -.1
   const COMIDAS = ['Desayuno', 'Comida', 'Merienda', 'Cena'];
   const DEF_GOALS = { kcal: 1800, proteina: 128 };
   const $ = (s) => document.querySelector(s);
+  const $$ = (s) => [...document.querySelectorAll(s)];
   const el = (tag, attrs, ...kids) => {
     const n = document.createElement(tag);
     if (attrs) for (const [k, v] of Object.entries(attrs)) {
@@ -846,7 +883,8 @@ nav.tabs button { font-size: .76rem; padding: 12px 1px 14px; letter-spacing: -.1
     });
     $('#gKcal').value = data.goals.kcal; $('#gProt').value = data.goals.proteina; $('#gPeso').value = data.goals.peso ? dec(data.goals.peso) : '';
     if (document.activeElement !== $('#wHt')) $('#wHt').value = altura(data) ? dec(altura(data)) : '';
-    renderIca();
+    $('#gMacros').textContent = data.goals.grasa != null && data.goals.hc != null ? `De la calculadora: grasa ≈ ${data.goals.grasa} g e hidratos ≈ ${data.goals.hc} g al día.` : '';
+    renderIca(); renderCalc(); renderProg();
   }
 
   // ---------- KPI cintura / altura ----------
@@ -1982,6 +2020,7 @@ nav.tabs button { font-size: .76rem; padding: 12px 1px 14px; letter-spacing: -.1
       let msg = `Peso guardado: ${fmt1(kg)} kg`;
       if (v) msg += ` · cintura/altura ${fmt2(v)} (${icaZone(v).t.toLowerCase()})`;
       else if (cm > 0) msg += ' · pon tu altura para calcular cintura/altura';
+      if (data.perfil.calc && data.perfil.calc.auto && f === lastPeso().fecha) { const rc = applyCalc(true); if (rc) { persist(); msg += ` · objetivos: ${fmtN(rc.kcal)} kcal y ${rc.prot} g de proteína`; } }
       setStatus(msg); renderAll();
       if (v) $('#icaCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1990,8 +2029,134 @@ nav.tabs button { font-size: .76rem; padding: 12px 1px 14px; letter-spacing: -.1
     const k = num($('#gKcal').value), p = num($('#gProt').value), pesoRaw = $('#gPeso').value.trim(), w = num(pesoRaw);
     if (!(k > 500) || !(p > 10)) { setStatus('Revisa los objetivos de calorías y proteína.', true); return; }
     if (pesoRaw && !(w > 30 && w < 300)) { setStatus('Revisa el peso objetivo (en kg), o déjalo vacío.', true); return; }
-    data.goals = { kcal: r0(k), proteina: r0(p), peso: pesoRaw ? r1(w) : null }; if (persist()) { setStatus('Objetivos guardados'); renderAll(); }
+    data.goals = { ...data.goals, kcal: r0(k), proteina: r0(p), peso: pesoRaw ? r1(w) : null }; if (persist()) { setStatus('Objetivos guardados'); renderAll(); }
   });
+
+  // ---------- calculadora de objetivos (fórmula de Mifflin-St Jeor + reparto de macros) ----------
+  const ACTS = [
+    { v: 1.2, t: 'Sedentaria: trabajo sentado y casi sin ejercicio' },
+    { v: 1.375, t: 'Ligera: caminas o entrenas 1–3 días por semana' },
+    { v: 1.55, t: 'Moderada: entrenas 3–5 días por semana' },
+    { v: 1.725, t: 'Alta: entrenas 6–7 días por semana' },
+    { v: 1.9, t: 'Muy alta: trabajo físico y entrenas a diario' },
+  ];
+  const CALC_DEF = { sexo: 'h', edad: null, act: 1.375, obj: 'perder', ajuste: 15, protKg: 1.6, grasaKg: 0.7, base: 'obj', auto: true };
+  const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 864e5);
+  const lastPeso = () => { const P = Object.values(data.pesos).sort((a, b) => (a.fecha < b.fecha ? -1 : 1)); return P.length ? P[P.length - 1] : null; };
+  const calcCfg = () => ({ ...CALC_DEF, ...((data.perfil && data.perfil.calc) || {}) });
+  function calcGoals(c) {
+    const w = lastPeso(), h = altura(data);
+    if (!w || !h || !(c.edad >= 14 && c.edad <= 100)) return { falta: [!c.edad ? 'tu edad' : null, !h ? 'tu altura' : null, !w ? 'tu peso' : null].filter(Boolean) };
+    const kg = Number(w.peso_kg), bmr = 10 * kg + 6.25 * h - 5 * c.edad + (c.sexo === 'm' ? -161 : 5);
+    const mant = bmr * c.act, sign = c.obj === 'perder' ? -1 : c.obj === 'ganar' ? 1 : 0;
+    const kcal = Math.round(mant * (1 + sign * c.ajuste / 100) / 10) * 10;
+    const usaObj = c.base === 'obj' && data.goals.peso > 0, baseKg = usaObj ? Number(data.goals.peso) : kg;
+    const prot = Math.round(c.protKg * baseKg), grasa = Math.round(c.grasaKg * baseKg), hc = Math.round((kcal - prot * 4 - grasa * 9) / 4);
+    return { kg, h, bmr, mant, kcal, baseKg, usaObj, prot, grasa, hc, hcKg: hc / baseKg, ritmo: (kcal - mant) * 7 / 7700 };
+  }
+  function readCalc() {
+    const c = calcCfg(), e = num($('#cEdad').value), aj = num($('#cAjuste').value), p = num($('#cProtKg').value), g = num($('#cGrasaKg').value);
+    c.sexo = $('#cSexo').value; c.act = Number($('#cAct').value); c.base = $('#cBase').value; c.auto = $('#cAuto').checked;
+    c.edad = e >= 14 && e <= 100 ? Math.round(e) : null;
+    if (aj >= 0 && aj <= 30) c.ajuste = r1(aj);
+    if (p >= 0.8 && p <= 3) c.protKg = r1(p);
+    if (g >= 0.3 && g <= 1.5) c.grasaKg = Math.round(g * 100) / 100;
+    return c;
+  }
+  function saveCalc(c) { data.perfil.calc = c; persist(); }
+  function applyCalc(quiet) {
+    const r = calcGoals(calcCfg()); if (!r.kcal || r.hc < 0) return null;
+    data.goals = { ...data.goals, kcal: r.kcal, proteina: r.prot, grasa: r.grasa, hc: r.hc };
+    if (!quiet) { persist(); setStatus(`Objetivos guardados: ${fmtN(r.kcal)} kcal y ${r.prot} g de proteína`); renderAll(); }
+    return r;
+  }
+  function renderCalc() {
+    const c = calcCfg();
+    if (!$('#cAct').options.length) for (const a of ACTS) $('#cAct').append(el('option', { value: String(a.v), text: a.t }));
+    const act = document.activeElement;
+    if (act !== $('#cEdad')) $('#cEdad').value = c.edad || '';
+    if (act !== $('#cAjuste')) $('#cAjuste').value = dec(c.ajuste);
+    if (act !== $('#cProtKg')) $('#cProtKg').value = dec(c.protKg);
+    if (act !== $('#cGrasaKg')) $('#cGrasaKg').value = dec(c.grasaKg);
+    $('#cSexo').value = c.sexo; $('#cAct').value = String(c.act); $('#cBase').value = c.base; $('#cAuto').checked = !!c.auto;
+    for (const b of $$('#cObj button')) b.setAttribute('aria-pressed', String(b.dataset.v === c.obj));
+    $('#cAjL').textContent = c.obj === 'ganar' ? 'Superávit (%)' : c.obj === 'perder' ? 'Déficit (%)' : 'Ajuste (%)';
+    $('#cAjuste').disabled = c.obj === 'mantener';
+    const box = $('#cRes'); box.replaceChildren();
+    const r = calcGoals(c);
+    if (!r.kcal) { box.append(el('p', { class: 'note', text: `Para calcular falta ${listaY(r.falta)}.` })); $('#cUse').disabled = true; return; }
+    const row = (k, v, sub, strong) => el('div', { class: 'crow' + (strong ? ' strong' : '') }, el('span', { text: k }), el('b', { text: v }), sub ? el('small', { text: sub }) : null);
+    const bk = `${fmtN(r1(r.baseKg))} kg${r.usaObj ? ' (peso objetivo)' : ''}`;
+    box.append(
+      row('Metabolismo basal', `${fmtN(r0(r.bmr))} kcal`, `con ${fmt1(r.kg)} kg, ${fmt1(r.h)} cm y ${c.edad} años`),
+      row('Mantenimiento', `${fmtN(r0(r.mant))} kcal`, `basal × ${dec(c.act)} por tu actividad`),
+      row('Calorías objetivo', `${fmtN(r.kcal)} kcal`, c.obj === 'mantener' ? 'para mantener el peso' : `${c.obj === 'perder' ? '−' : '+'}${dec(c.ajuste)} % sobre el mantenimiento`, true),
+      row('Proteína', `${r.prot} g`, `${dec(c.protKg)} g × ${bk} · ${fmtN(r.prot * 4)} kcal`),
+      row('Grasa', `${r.grasa} g`, `${dec(c.grasaKg)} g × ${bk} · ${fmtN(r.grasa * 9)} kcal`),
+      row('Hidratos', `${Math.max(0, r.hc)} g`, `el resto · ${fmt1(r.hcKg)} g por kg · ${fmtN(Math.max(0, r.hc) * 4)} kcal`));
+    if (c.obj !== 'mantener') box.append(el('p', { class: 'note', text: `Ritmo esperado: ${r.ritmo < 0 ? '−' : '+'}${fmt1(Math.abs(r.ritmo))} kg por semana (${fmt1(Math.abs(r.ritmo) / r.kg * 100)} % de tu peso).` }));
+    const avisos = [];
+    if (r.hc < 0) avisos.push('Con estos números la proteína y la grasa ya superan las calorías: baja los gramos por kilo.');
+    else if (r.hcKg < 3) avisos.push(`Los hidratos quedan en ${fmt1(r.hcKg)} g por kilo, por debajo del mínimo de 3 g que recomienda el vídeo. Baja la grasa o la proteína${r.usaObj ? '' : ', o calcula por el peso objetivo'}.`);
+    if (c.obj !== 'mantener' && (c.ajuste < 10 || c.ajuste > 15)) avisos.push(`El vídeo recomienda un ${c.obj === 'perder' ? 'déficit' : 'superávit'} del 10 al 15 %.`);
+    if (c.protKg < 1.2 || c.protKg > 2.2) avisos.push('El vídeo recomienda entre 1,2 y 2,2 g de proteína por kilo.');
+    if (c.grasaKg < 0.5 || c.grasaKg > 1) avisos.push('El vídeo recomienda entre 0,5 y 1 g de grasa por kilo.');
+    if (c.base === 'obj' && !(data.goals.peso > 0)) avisos.push('No tienes peso objetivo: los gramos por kilo se calculan con tu peso actual.');
+    for (const a of avisos) box.append(el('div', { class: 'note warn', text: a }));
+    box.append(el('p', { class: 'note', text: `Ahora tienes ${fmtN(data.goals.kcal)} kcal y ${data.goals.proteina} g de proteína.` }));
+    $('#cUse').disabled = r.hc < 0;
+  }
+  const onCalc = () => { saveCalc(readCalc()); renderCalc(); renderProg(); };
+  for (const id of ['#cSexo', '#cAct', '#cBase', '#cAuto']) $(id).addEventListener('change', onCalc);
+  for (const id of ['#cEdad', '#cAjuste', '#cProtKg', '#cGrasaKg']) { $(id).addEventListener('input', () => { const c = readCalc(); data.perfil.calc = c; renderCalc(); }); $(id).addEventListener('change', onCalc); }
+  for (const b of $$('#cObj button')) b.addEventListener('click', () => {
+    const c = readCalc(); if (c.obj !== b.dataset.v) { c.obj = b.dataset.v; if (c.obj === 'ganar' && c.ajuste === 15) c.ajuste = 10; if (c.obj === 'perder' && c.ajuste === 10) c.ajuste = 15; }
+    saveCalc(c); renderCalc(); renderProg();
+  });
+  $('#cUse').addEventListener('click', () => { saveCalc(readCalc()); applyCalc(); });
+  // ---------- ajuste según el progreso real ----------
+  function progData() {
+    const P = Object.values(data.pesos).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+    if (P.length < 2) return { msg: 'Necesito al menos dos pesos para ver cómo vas.' };
+    const w2 = P[P.length - 1], antes = P.filter((w) => daysBetween(w.fecha, w2.fecha) >= 14);
+    const corto = !antes.length, w1 = corto ? P[0] : antes[antes.length - 1], dias = daysBetween(w1.fecha, w2.fecha);
+    const perd = w1.peso_kg - w2.peso_kg, pctSem = perd / w1.peso_kg / dias * 7 * 100;
+    const ds = [...Array(dias)].map((_, i) => addDays(w1.fecha, i)).filter((d) => d < today());
+    const comp = ds.filter((d) => { const regs = dayRegs(d); return regs.length && !reqMeals(d).some((m) => !mealReg(d, m)); });
+    const avgK = comp.length ? comp.reduce((a, d) => a + dayTotals(d).k, 0) / comp.length : null;
+    const pocos = comp.length < Math.max(5, ds.length * 0.5);
+    const real = !corto && !pocos && avgK != null ? avgK + perd * 7700 / dias : null;
+    return { w1, w2, dias, perd, pctSem, corto, avgK, nComp: comp.length, nDias: ds.length, pocos, real, primera: daysBetween(P[0].fecha, w1.fecha) < 14 };
+  }
+  function renderProg() {
+    const box = $('#progRes'); if (!box) return; box.replaceChildren();
+    const d = progData(), c = calcCfg();
+    if (d.msg) { box.append(el('p', { class: 'note', text: d.msg })); return; }
+    const row = (k, v, sub, strong) => el('div', { class: 'crow' + (strong ? ' strong' : '') }, el('span', { text: k }), el('b', { text: v }), sub ? el('small', { text: sub }) : null);
+    box.append(row('Peso', `${d.perd >= 0 ? '−' : '+'}${fmt1(Math.abs(d.perd))} kg`, `del ${lower1(nice(d.w1.fecha))} al ${lower1(nice(d.w2.fecha))} (${d.dias} días)`),
+      row('Ritmo', `${d.pctSem >= 0 ? '−' : '+'}${fmt1(Math.abs(d.pctSem))} % por semana`, `${d.perd >= 0 ? '−' : '+'}${fmt1(Math.abs(d.perd / d.dias * 7))} kg por semana · más de un 1 % semanal suele costar músculo`));
+    if (d.avgK != null) box.append(row('Comiste de media', `${fmtN(r0(d.avgK))} kcal`, `en ${d.nComp} días completos de ${d.nDias}`));
+    if (d.corto) { box.append(el('p', { class: 'note', text: `Para estimar tu gasto real necesito pesos con al menos 2 semanas de diferencia (ahora hay ${d.dias} días). Sigue pesándote una vez por semana.` })); return; }
+    if (d.pocos) { box.append(el('p', { class: 'note', text: 'Para estimar tu gasto real necesito más días completos entre esos dos pesos. Apunta todas las comidas, o marca como ayuno las que te saltes.' })); return; }
+    const aj = c.obj === 'mantener' ? 0 : c.ajuste, sign = c.obj === 'perder' ? -1 : c.obj === 'ganar' ? 1 : 0;
+    const sug = Math.round(d.real * (1 + sign * aj / 100) / 10) * 10;
+    box.append(row('Tu gasto real estimado', `${fmtN(r0(d.real))} kcal`, 'lo que comes de media más lo que cuesta el peso que pierdes (7.700 kcal por kilo)', true));
+    const r = calcGoals(c); if (r.mant) box.append(el('p', { class: 'note', text: `La fórmula decía ${fmtN(r0(r.mant))} kcal.` }));
+    const raro = r.mant && Math.abs(d.real - r.mant) / r.mant > 0.35;
+    if (d.primera || raro) {
+      box.append(el('div', { class: 'note warn', text: d.primera
+        ? `Aún es pronto para fiarse de este dato: las primeras semanas se pierde mucho líquido y el gasto sale más alto de lo real. ${d.pctSem > 1 ? 'Bajas rápido; ' : ''}espera a tener 3 o 4 semanas de pesos antes de cambiar las calorías por esto.`
+        : 'La diferencia con la fórmula es muy grande. Revisa que apuntas todo lo que comes (también el aceite y lo que picas) y que te pesas en las mismas condiciones.' }));
+      return;
+    }
+    box.append(el('p', { class: 'note', text: 'Cuando hay datos suficientes, el gasto real manda sobre la fórmula: es tu cuerpo, con tu actividad de verdad.' }));
+    let txt;
+    if (c.obj === 'perder' && d.pctSem > 1) txt = `Bajas más rápido de lo recomendado. Con un déficit del ${dec(aj)} % sobre tu gasto real te tocarían unas ${fmtN(sug)} kcal: puedes comer algo más y conservar mejor el músculo.`;
+    else if (c.obj === 'perder' && d.pctSem < 0.25) txt = `Bajas muy despacio. Con un déficit del ${dec(aj)} % sobre tu gasto real te tocarían unas ${fmtN(sug)} kcal.`;
+    else txt = `Vas a buen ritmo. Con un ${c.obj === 'mantener' ? 'mantenimiento' : `${c.obj === 'perder' ? 'déficit' : 'superávit'} del ${dec(aj)} %`} sobre tu gasto real te tocarían unas ${fmtN(sug)} kcal.`;
+    box.append(el('div', { class: 'note ok', text: txt }));
+    if (Math.abs(sug - data.goals.kcal) >= 50) box.append(el('button', { class: 'btn sec', onclick: () => { data.goals = { ...data.goals, kcal: sug }; if (persist()) { setStatus(`Objetivo de calorías: ${fmtN(sug)} kcal`); renderAll(); } } }, `Usar ${fmtN(sug)} kcal como objetivo`));
+  }
 
   // ---------- copia de seguridad ----------
   async function share(blob, fname, label) {
